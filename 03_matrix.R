@@ -40,20 +40,16 @@ library(httr)
 library(jsonlite)
 library(glue)
 
-n_cores <- detectCores()
-cluster <- makeCluster(n_cores - 1) 
 registerDoParallel(cluster)
-
 coords2 <- c()
 coords2 <- foreach(i = 1:nrow(df), .combine='rbind') %dopar% {
   coords2[i] <- paste(df[i, 'coord'][1],df[i, 'coord'][2], sep=',')
 }
 stopCluster(cl = cluster)
 
-n_cores <- detectCores()
-cluster <- makeCluster(n_cores - 1) 
-registerDoParallel(cluster)
+# --- Limit of API ---
 
+registerDoParallel(cluster)
 max_num <- 3178
 foreach (i=c(2000, 3178)) %dopar% {
   api_coords <- paste(coords2[1:i], collapse=';')
@@ -69,17 +65,83 @@ foreach (i=c(2000, 3178)) %dopar% {
   }
 stopCluster(cl = cluster)
 
+# to call it from browser as well
 fileConn<-file("request.txt")
 writeLines(call, fileConn)
 close(fileConn)
 
 # I can get all the 3178 coordinates by rows
-  # --> more efficient: avoid columns which are already have
+  # --> more efficient: avoid columns which are already had
 
-9+90*2+900*3+9000*4+1*3*3178-1
-nchar(call)
+# ---- Build distance matrix ----
+# simple solution --> just to show the result to Laci --> later possible devs
+
+n <- nrow(df)
+api_coords <- paste(coords2, collapse=';')
+dis_matrix <- matrix(NA, n, n)
+rownames(dis_matrix) <- df$name
+colnames(dis_matrix) <- df$name
+end_counter <- 0
+
+# registerDoParallel(cluster)
+for (i in 1:n) {
+  call <- paste('http://localhost:8080/table/v1/driving/',api_coords,
+                '?annotations=distance&sources=',i-1,
+                '&destinations=',paste(seq(i-1,n-1,1), collapse=';'), sep='')
+  print(paste('The',i,'th call begun!'))
+  route_planner <- httr::GET(url = call)
+  if(status_code(route_planner)==200){
+    dis_matrix[i,i:n] <- fromJSON(content(route_planner, 'text', encoding='UTF-8'), flatten=TRUE)$distances
+  }
+  else{
+    print(paste(i, 'th call did not give any data.', sep=''))
+    break
+  }
+}
+arrow::write_parquet(as.data.frame(dis_matrix), "data/dis_matrix_full.parquet")
+
+# ---- Build duration matrix ----
+
+n <- nrow(df)
+api_coords <- paste(coords2, collapse=';')
+dur_matrix <- matrix(NA, n, n)
+rownames(dur_matrix) <- df$name
+colnames(dur_matrix) <- df$name
+end_counter <- 0
+
+for (i in seq(1,n,3)) {
+  if (i == n-3){
+    call <- paste('http://localhost:8080/table/v1/driving/',api_coords,
+                            '?annotations=duration&sources=',i-1,
+                            '&destinations=',paste(seq(i-1,n-1,1), collapse=';'), sep='')
+    print(paste('Call',i))
+    route_planner <- httr::GET(url = call)
+    if(status_code(route_planner)==200){
+      dur_matrix[i,i:n] <- fromJSON(content(route_planner, 'text', encoding='UTF-8'), flatten=TRUE)$duration
+    }
+    else{
+      print(paste(i, 'th call did not give any data.', sep=''))
+      break
+    }
+  }
+  else{
+    call <- paste('http://localhost:8080/table/v1/driving/',api_coords,
+                  '?annotations=duration&sources=',paste(seq(i-1,i+1,1), collapse=';'),
+                  '&destinations=',paste(seq(i-1,n-1,1), collapse=';'), sep='')
+    print(paste('Call ',i,'-',i+3, sep=''))
+    route_planner <- httr::GET(url = call)
+    if(status_code(route_planner)==200){
+      dur_matrix[i:i+2,i:n] <- fromJSON(content(route_planner, 'text', encoding='UTF-8'), flatten=TRUE)$duration
+    }
+    else{
+      print(paste('Call ',i,'-',i+2, ' did not give any data.', sep=''))
+      break
+    }
+  }
+}
 
 # ---- Visualise the 100 call problem ----
+# skippable but the ggplot is quite nice
 v <- c()
 for(i in 1:30){
   v <- c(v, max(rowSums(air_matrix<i)))
@@ -104,17 +166,3 @@ ggplot(coord_limit_problem, aes(x = km, y = number_of_munis)) +
 max(coord_limit_problem[coord_limit_problem$number_of_munis<100,'km'])
 # 19 --> the maximal km in air --> assumption: nobody travelled more than 19 km in air 
 # to hear magyar peter in live
-
-((3178*3178-3178)/2)/100/3.52/60/60
-  # ((3178*3178-3178)/2) --> upper.tri(matrix)
-  # /100 --> we can stack the munis by 100
-  # /3.52 requests/sec after wrk -t1 -c1 -d120s 
-  # /60 to mins
-  # /60 to hours
-
-((3178*3178-3178)/2)/10/40.99/60/60
-  # ((3178*3178-3178)/2) --> upper.tri(matrix)
-  # /100 --> we can stack the munis by 10
-  # /40.99 requests/sec after wrk -t1 -c1 -d30s 
-  # /60 to mins
-  # /60 to hours

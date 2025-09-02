@@ -72,22 +72,11 @@ coords2 <- foreach(i = 1:nrow(df_sample), .combine='rbind') %dopar% {
 stopCluster(cl = cluster)
 n <- nrow(df_sample)
 api_coords <- paste(coords2, collapse=';')
-dis_matrix <- matrix(NA, n, n)
-rownames(dis_matrix) <- df_sample$name
-colnames(dis_matrix) <- df_sample$name
-end_counter <- 0
+dur_matrix <- matrix(NA, n, n)
+rownames(dur_matrix) <- df_sample$name
+colnames(dur_matrix) <- df_sample$name
 
 # registerDoParallel(cluster)
-for (i in 1:n) {
-  call <- paste('http://localhost:8080/table/v1/driving/',api_coords,
-                '?annotations=distance&sources=',i-1,
-                '&destinations=',paste(seq(i-1,n-1,1), collapse=';'), sep='')
-  print(paste('The',i,'th call begun!'))
-  route_planner <- httr::GET(url = call)
-  if(status_code(route_planner)==200){
-    dis_matrix[i,i:n] <- fromJSON(content(route_planner, 'text', encoding='UTF-8'), flatten=TRUE)$distances
-  }
-}
 
 for (i in seq(1,n,3)) {
   if (i == n-3){
@@ -111,7 +100,7 @@ for (i in seq(1,n,3)) {
     print(paste('Call ',i,'-',i+3, sep=''))
     route_planner <- httr::GET(url = call)
     if(status_code(route_planner)==200){
-      dur_matrix[i:i+2,i:n] <- fromJSON(content(route_planner, 'text', encoding='UTF-8'), flatten=TRUE)$duration
+      dur_matrix[i:(i+2),i:n] <- fromJSON(content(route_planner, 'text', encoding='UTF-8'), flatten=TRUE)$duration
     }
     else{
       print(paste('Call ',i,'-',i+2, ' did not give any data.', sep=''))
@@ -119,3 +108,11 @@ for (i in seq(1,n,3)) {
     }
   }
 }
+
+# ---- Export sample munis ----
+fileConn<-file("data/sample_munis.txt")
+writeLines(df_sample$name, fileConn)
+close(fileConn)
+
+write.csv(df_sample, 'data/sample.csv', row.names=FALSE)
+

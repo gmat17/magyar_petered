@@ -110,7 +110,7 @@ colnames(dur_matrix) <- df$name
 end_counter <- 0
 
 for (i in seq(1,n,3)) {
-  if (i == n-3){
+  if (i >= n-3){
     call <- paste('http://localhost:8080/table/v1/driving/',api_coords,
                             '?annotations=duration&sources=',i-1,
                             '&destinations=',paste(seq(i-1,n-1,1), collapse=';'), sep='')
@@ -128,10 +128,10 @@ for (i in seq(1,n,3)) {
     call <- paste('http://localhost:8080/table/v1/driving/',api_coords,
                   '?annotations=duration&sources=',paste(seq(i-1,i+1,1), collapse=';'),
                   '&destinations=',paste(seq(i-1,n-1,1), collapse=';'), sep='')
-    print(paste('Call ',i,'-',i+3, sep=''))
+    print(paste('Call ',i,'-',i+2, sep=''))
     route_planner <- httr::GET(url = call)
     if(status_code(route_planner)==200){
-      dur_matrix[i:i+2,i:n] <- fromJSON(content(route_planner, 'text', encoding='UTF-8'), flatten=TRUE)$duration
+      dur_matrix[i:(i+2),i:n] <- fromJSON(content(route_planner, 'text', encoding='UTF-8'), flatten=TRUE)$duration
     }
     else{
       print(paste('Call ',i,'-',i+2, ' did not give any data.', sep=''))
@@ -139,6 +139,8 @@ for (i in seq(1,n,3)) {
     }
   }
 }
+
+arrow::write_parquet(as.data.frame(dur_matrix), "data/dur_matrix_full.parquet")
 
 # ---- Visualise the 100 call problem ----
 # skippable but the ggplot is quite nice

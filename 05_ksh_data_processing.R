@@ -20,7 +20,7 @@ setwd("~/Downloads/egyetem/TDK/magyar_petered_main/ksh_data")
 # path <- '~/Downloads/egyetem/TDK/magyar_petered_main/ksh_data/'
 
 goods <- list.files('1_jó')
-teir <- readxl::read_excel('TEIR_TÁBLÁZAT 2025922_14-23-0.xlsx')
+teir <- readxl::read_excel('TEIR_TÁBLÁZAT 2025922_14-23-0.xlsx', sheet='lap_0')
 teir <- teir[!is.na(teir$kod),]
 check_teir <- function(x){if (grepl(" \\*$", x)){substr(x, 1, nchar(x) - 2)}else{x}}
 teir$...1 <- sapply(teir$...1,FUN = check_teir)
@@ -54,7 +54,7 @@ for (i in 1:length(goods)){
 length(teir$...1)
 length(base_table$name)
 
-base_table <- merge(base_table, teir, by.x='id', by.y='kod', all.x=TRUE)
+# base_table <- merge(base_table, teir, by.x='id', by.y='kod', all.x=TRUE)
 
 # ---- Load 3 files from 0_problemas (Timea data) ----
 # In these tables, the interesting thing is the change from 2012 to 2023.
@@ -89,13 +89,14 @@ base_table <- merge(base_table, flats, by.x='id', by.y='ELEM_KOD')
 base_table <- merge(base_table, buildings, by.x='id', by.y='ELEM_KOD')
 
 # Load detailed age and education data from Nepszamlalas 2022
-convert_full_table <- function(table){
-  for(col in colnames(table)){
-    sapply(table$col, convert_hun_number(col)
-  }
-  }
+# Age
+age <- readxl::read_excel('ksh-census2022-korcsopok.xlsx')
+base_table <- merge(base_table, age, by.x='name', by.y='...1')
 
 # Education
 edu <- readxl::read_excel('ksh-census2022-iskola.xlsx')
-for (i in colnames(edu)){}
-convert_hun_number()
+base_table <- merge(base_table, edu, by.x='name', by.y='...1')
+
+# ---- Exporting the final table ----
+writexl::write_xlsx(base_table, 'ksh_data_concated.xlsx')
+

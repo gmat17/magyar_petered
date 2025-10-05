@@ -16,11 +16,11 @@
 
 # ---- Loading TEIR table ----
 
-setwd("~/Downloads/egyetem/TDK/magyar_petered_main/magyar_petered")
-path <- '~/Downloads/egyetem/TDK/magyar_petered_main/ksh_data/'
+setwd("~/Downloads/egyetem/TDK/magyar_petered_main/ksh_data")
+# path <- '~/Downloads/egyetem/TDK/magyar_petered_main/ksh_data/'
 
-goods <- list.files(path = paste0(path, '1_jó'))
-teir <- readxl::read_excel(paste0(path, 'TEIR_TÁBLÁZAT 2025922_14-23-0.xlsx'))
+goods <- list.files('1_jó')
+teir <- readxl::read_excel('TEIR_TÁBLÁZAT 2025922_14-23-0.xlsx')
 teir <- teir[!is.na(teir$kod),]
 check_teir <- function(x){if (grepl(" \\*$", x)){substr(x, 1, nchar(x) - 2)}else{x}}
 teir$...1 <- sapply(teir$...1,FUN = check_teir)
@@ -38,14 +38,14 @@ rename_col <- function(df, old_name, new_name){
 }
 
 # add code to base table
-code_df <- read.csv(paste0(path, '1_jó/', goods[1]), sep=';')[,c('ELEM_KOD','TELEP_NEV')]
+code_df <- read.csv(paste0('1_jó/', goods[1]), sep=';')[,c('ELEM_KOD','TELEP_NEV')]
 base_table <- merge(code_df, base_table, by.x='TELEP_NEV','name')
 names(base_table) <- c('name', 'id', "place", "is_mped", "x", "y")
 convert_hun_number <- function(x){gsub(',','.',x)}
 
 for (i in 1:length(goods)){
-  mini_df <- read.csv(paste0(path, '1_jó/', goods[i]), sep=';')[,c('ELEM_KOD','VALUE')]
-  mini_df$VALUE <- as.numeric(sapply(data2023$VALUE,convert_hun_number))
+  mini_df <- read.csv(paste0('1_jó/', goods[i]), sep=';')[,c('ELEM_KOD','VALUE')]
+  mini_df$VALUE <- as.numeric(sapply(mini_df$VALUE,convert_hun_number))
   mini_df <- rename_col(mini_df, 'VALUE', goods[i])
   base_table <- merge(base_table, mini_df, by.x='id', by.y = 'ELEM_KOD', all.x = TRUE)
 }
@@ -55,38 +55,47 @@ length(teir$...1)
 length(base_table$name)
 
 base_table <- merge(base_table, teir, by.x='id', by.y='kod', all.x=TRUE)
-writexl::write_xlsx(base_table, paste0(path, 'munis_and_ksh_data_1andteir.xlsx'))
 
-# ---- Load XX files from 0_problemas (Timea data) ----
+# ---- Load 3 files from 0_problemas (Timea data) ----
 # In these tables, the interesting thing is the change from 2012 to 2023.
 
 load_table <- function(filename){
-  data <- read.csv(paste0(path, '0_problémás/', filename), sep=';')
+  data <- read.csv(paste0('0_problémás/', filename), sep=';')
   data <- data[,c('ELEM_KOD','VALUE')]
   data$VALUE <- as.numeric(sapply(data$VALUE,convert_hun_number))
   return(data)
 }
 
-get_diff <- function(filename_basis){
+get_diff <- function(filename_basis, name_diff){
   data2023 <- load_table(paste0(filename_basis,'_2023.csv'))
   data2012 <- load_table(paste0(filename_basis,'_2012.csv'))
-  data <- merge(routes2023, routes2012, 'ELEM_KOD', 'ELEM_KOD')
-  data$diff <- routes$VALUE.x-routes$VALUE.y
-  return(data[,c('ELEM_KOD', 'diff')])
+  data <- merge(data2023, data2012, 'ELEM_KOD', 'ELEM_KOD')
+  data$diff <- data$VALUE.x-data$VALUE.y
+  data <- rename_col(data, 'diff', name_diff)
+  return(data[,c('ELEM_KOD', name_diff)])
 }
-# Száz km2 területre jutó közút_2023.csv
-get_diff('Száz km2 területre jutó közút')
+# Száz km2 területre jutó közút
+routes <- get_diff('Száz km2 területre jutó közút', 'len_routes_diff')
 
-load_table(paste0('Száz km2 területre jutó közút','_2023.csv'))
+# Épített lakás tízezer lakosra
+flats <- get_diff('Épített lakás tízezer lakosra', 'flats')
 
-'Száz km2 területre jutó közút'
+# Ezer lakóra jutó lakásépítési engedélyek és bejelentések
+buildings <- get_diff('Ezer lakóra jutó lakásépítési engedélyek és bejelentések', 'building_permissions')
 
-'Száz km2 területre jutó közúẗ́_2023.csv'=='Száz km2 területre jutó közút_2023.csv'
-string <- 'Száz km2 területre jutó közút_2023.csv'
+# Add them to base_table
+base_table <- merge(base_table, routes, by.x='id', by.y='ELEM_KOD')
+base_table <- merge(base_table, flats, by.x='id', by.y='ELEM_KOD')
+base_table <- merge(base_table, buildings, by.x='id', by.y='ELEM_KOD')
 
+# Load detailed age and education data from Nepszamlalas 2022
+convert_full_table <- function(table){
+  for(col in colnames(table)){
+    sapply(table$col, convert_hun_number(col)
+  }
+  }
 
-# Épített lakás tízezer lakosra_2023.csv
-
-
-# Ezer lakóra jutó lakásépítési engedélyek és bejelentések_2023.csv
-
+# Education
+edu <- readxl::read_excel('ksh-census2022-iskola.xlsx')
+for (i in colnames(edu)){}
+convert_hun_number()

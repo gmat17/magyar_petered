@@ -89,14 +89,24 @@ base_table <- merge(base_table, flats, by.x='id', by.y='ELEM_KOD')
 base_table <- merge(base_table, buildings, by.x='id', by.y='ELEM_KOD')
 
 # Load detailed age and education data from Nepszamlalas 2022
+load_nepszamlalas <- function(filename,getpop=FALSE){
+  df <- readxl::read_excel(filename)
+  df[is.na(df)] <- 0
+  df$pop <- rowSums(df[,2:ncol(df)])
+  for(i in colnames(df)[2:(ncol(df)-1)]){
+    df[,i] <- df[,i]/df$pop
+  }
+  if(getpop==FALSE){df <- df[,1:ncol(df)-1]}
+  return(df)
+}
+
 # Age
-age <- readxl::read_excel('ksh-census2022-korcsopok.xlsx')
+age <- load_nepszamlalas('ksh-census2022-korcsopok.xlsx')
 base_table <- merge(base_table, age, by.x='name', by.y='...1')
 
 # Education
-edu <- readxl::read_excel('ksh-census2022-iskola.xlsx')
+edu <- load_nepszamlalas('ksh-census2022-iskola.xlsx',getpop=TRUE)
 base_table <- merge(base_table, edu, by.x='name', by.y='...1')
 
 # ---- Exporting the final table ----
 writexl::write_xlsx(base_table, 'ksh_data_concated.xlsx')
-

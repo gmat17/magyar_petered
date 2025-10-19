@@ -1,7 +1,7 @@
 setwd("~/Downloads/egyetem/TDK/magyar_petered_main/magyar_petered/data")
 # --- Get frequency table ----
 library(plyr)
-munis <- readxl::read_excel('ksh_data_concated_full.xlsx')
+munis <- readxl::read_excel('ksh_data_concated.xlsx')
 munis_df <- data.frame()
 munis_df <- munis[1:10,'id']
 for (i in colnames(munis)[7:51]) {
@@ -44,7 +44,7 @@ munis <- st_as_sf(munis)
 
 points <- read.csv('municipality_lonlat.csv')[,c('name', 'x','y')]
 munis <- merge(munis, points, by.x='Var1', by.y='name')
-munis[munis$Freq<12,c('x','y')] <- c(NA,NA)
+munis[munis$Freq<5,c('x','y')] <- c(NA,NA)
 
 # ---- Plot the result ----
 ggplot(munis) +
@@ -60,5 +60,3 @@ ggplot(munis) +
   labs(title = 'A kiválasztott adatokban legmagasabb \n értékekkel rendelkező települések', ) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
         axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank())
-
-

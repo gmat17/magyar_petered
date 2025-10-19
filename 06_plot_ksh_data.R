@@ -95,10 +95,10 @@ get_boxplot(some_out_col)
 get_boxplot(great_out_col)
 get_boxplot(miaf)
 
-# ---- Variables ----
+# ---- Functions for the plots ----
 library(dplyr)
+library(grid)
 
-# function for the plot
 get_mapplot <- function(x,islog=FALSE){
   title_text <- desc %>% 
     filter(name == x) %>% 
@@ -111,19 +111,53 @@ get_mapplot <- function(x,islog=FALSE){
     scale_fill_viridis_b(option = 'viridis') +
     theme_minimal() +
     theme(legend.position='bottom') +
-    labs(title = desc[desc$name==x,]$description, 
+    labs(title = desc[desc$name==x,]$description,
          fill = if (islog) paste0('log(',x,')') else x) +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-          axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank())
+          axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank()) +
+    guides(fill = guide_colorbar(barwidth = 10, barheight = 0.5))
 }
 
-get_hist <- function(x){
-  'im tied boss'
+get_hist <- function(x,islog=FALSE){
+  if (islog) {for_fun <- log(ksh[[x]])} else {for_fun <- ksh[[x]]}
+  
+  for_fun[(for_fun==-Inf)|(for_fun==Inf)] <- 0
+  
+  g <- ggplot(ksh) +
+    geom_histogram(aes(x= for_fun)) +
+    scale_fill_viridis_b(option = 'viridis') +
+    stat_function(fun = dnorm, 
+                  args = list(mean = mean(for_fun,na.rm=TRUE), 
+                              sd = sd(for_fun)), 
+                  color = 'red') +
+    theme_minimal() +
+    theme(legend.position='bottom', panel.background = element_blank(),
+          plot.background = element_blank(), panel.grid = element_blank()) +
+    labs(y='darab', x = if (islog) paste0('log(',x,')') else x) +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+  return(g)
 }
+
+ggplot(data.frame(x = c(-2, 8)), aes(x = x)) +
+  stat_function(fun = dnorm, args = list(mean = 2.41364, sd = 1.339745))
+
+get_combined <- 
 
 # animal unity
-get_mapplot('animal_unity',islog=FALSE)
+p1 <- get_mapplot('animal_unity',islog=FALSE)
 get_mapplot('animal_unity',islog=TRUE)
+
+p2 <- get_hist('animal_unity', islog=FALSE)
+get_hist('animal_unity', islog=TRUE)
+
+g1 <- ggplotGrob(p1)
+g2 <- ggplotGrob(p2)
+
+grid.newpage()
+grid.draw(g1)
+pushViewport(viewport())
+grid.draw(editGrob(g2, gp = gpar(alpha = 0.3)))
+popViewport()
 
 # animal_unity
 

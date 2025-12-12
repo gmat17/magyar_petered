@@ -62,7 +62,7 @@ ggplot(nvi) +
   scale_fill_gradient(low='white',high='#24b574') +
   theme_minimal() +
   theme(legend.position='bottom') +
-  labs(title = 'A TISZA párt támogatottsága egyes településeken a 2024-es EP választáson',
+  labs(title = 'A TISZA párt támogatottsága egyes\n településeken a 2024-es EP választáson',
        fill = 'szavazati arány') +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
         axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank()) +

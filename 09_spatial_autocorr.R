@@ -23,7 +23,7 @@ for (i in counties){
 colnames(nvi)[1:4] <- c('name','type','voting_places','processing')
 colnames(nvi)[5:21] <- params$sign_in_code
 
-# convert to probabilties
+# convert to proportion
 # keep the general mindset about props
   # turnout = all voters / votable pop
   # party = voters of the party / all voters
@@ -36,15 +36,39 @@ nvi$other <- rowSums(nvi[,c('memo','lmp','rk2','mmn','mom','jobb','mkkp','mhm')]
 nvi$invalid <- nvi$invalid/nvi$voters
 
 nvi <- nvi[,c('name','vox_pop','turnout','tisza','fidesz','bal','other','invalid'),]
-
-writexl::write_xlsx(nvi,'magyar_petered/data/nvi.xlsx')
+# writexl::write_xlsx(nvi,'magyar_petered/data/nvi.xlsx')
 
 setwd("~/Downloads/egyetem/TDK/magyar_petered_main/magyar_petered/data")
 # load munis' shapefile
 shape_df <- st_read('kozighatarok/admin8.shp')
 shape_df <- st_make_valid(shape_df)
 shape_df <- st_transform(shape_df, crs = 4326)
+# attention! different number of rows!
+c(nrow(shape_df), nrow(nvi))
+tbl <- table(shape_df$NAME)
+shape_df[shape_df$NAME %in% rownames(tbl[tbl>1]),]
+  # multiple rows <-- different geometry
+max(tbl[tbl>1]) # maximum duple, not triple or above
+  # 40 cases: duplicate rows
+
+# eliminate duplicates
+dupl.table <- shape_df[shape_df$NAME %in% rownames(tbl[tbl>1]),]
+dupl.table <- data.frame('index'=rownames(dupl.table), 'name'=dupl.table$NAME)
+is.added.name <- c()
+is.added.index <- c()
+for(i in dupl.table$index){
+  if(!dupl.table[dupl.table$index==i,'name'] %in% is.added.name){
+    is.added.name <- c(dupl.table[dupl.table$index==i,'name'], is.added.name)
+    is.added.index <- c(i, is.added.index)
+  }
+}
+non.index <- as.numeric(setdiff(dupl.table$index, is.added.index))
+shape_df <- shape_df[-non.index,]
+
+# load back to nvi
 nvi <- merge(nvi, shape_df[,c('NAME', 'geometry')], by.x='name', by.y='NAME')
+nvi[nvi$name %in% rownames(table(nvi$name)[table(nvi$name)>1]),]
+
 nvi <- st_as_sf(nvi)
 
 # load hungary's shape
@@ -68,21 +92,62 @@ ggplot(nvi) +
         axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank()) +
   guides(fill = guide_colorbar(barwidth = 10, barheight = 0.5))
 
-# call the matrixes
+# call the dur matrix
+library(data.table)
+setwd("~/Downloads/egyetem/TDK/magyar_petered_main")
+locs <- readRDS('ksh_data/locs.rds')
+durations <- fread('ksh_data/osrmdurations.csv')
+durations <- as.matrix(durations)
+rownames(durations) <- colnames(durations) <- locs$NAME
+durations <- durations/60/60
+durationsSymm <- (durations + t(durations))/2
+durationsSymm
+
+c(nrow(durationsSymm), nrow(nvi))
+durationsSymm <- durationsSymm[intersect(colnames(durationsSymm),nvi$name),]
+durationsSymm <- durationsSymm[,intersect(colnames(durationsSymm),nvi$name)]
+
+weight.matrix <- 1/durationsSymm^2
+diag(weight.matrix) <- 0
+Moran.I(nvi$tisza, weight.matrix)
+
+
+
+# 
+
 library(sp)
 library(spdep)
 library(ape)
 dis_matrix <- arrow::read_parquet('dis_matrix_full.parquet')
 dis_matrix <- as.matrix(dis_matrix)
 rownames(dis_matrix) <- colnames(dis_matrix)
+
+# problem: dis_matrix more rows than nvi
+# just short solution to see the Moran.I --> will be fixed later in prev codes
+c(nrow(dis_matrix),nrow(nvi))
+
+setdiff(colnames(dis_matrix),nvi$name)
+table(nvi$name)[table(nvi$name)>1]
+table(colnames(dis_matrix))[table(colnames(dis_matrix))>1]
+table(nvi$name)[table(nvi$name)>1]
+
+na.omit(dis_matrix['Balatoncsicsó',])
+
+
+nvi[nvi$name=='Foktő',]
+
 weight_matrix <- 1/dis_matrix^2
-rm(dis_matrix)
+# rm(dis_matrix)
 
 Moran.I(nvi$tisza, weight_matrix)
 nrow(nvi)
 nrow(weight_matrix)
 
-setdiff(colnames(weight_matrix), nvi$name)
+dis_matrix <- dis_matrix[intersect(colnames(weight_matrix), nvi$name),]
+
+
+
+nvi <- nvi[nvi$name!='Budapest',]
 
 cnames <- colnames(weight_matrix)
 cnames <- cnames[order(cnames)]

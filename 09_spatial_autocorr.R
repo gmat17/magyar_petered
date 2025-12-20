@@ -79,6 +79,7 @@ hun_shape <- st_transform(hun_shape, crs = 4326)
 # ---- Spatial-autoregression of TISZA ----
 # general plot about the support
 library(ggplot2)
+library(ape)
 
 ggplot(nvi) +
   geom_sf(data=hun_shape, fill='white', size=0.3,color='black') +
@@ -111,47 +112,11 @@ weight.matrix <- 1/durationsSymm^2
 diag(weight.matrix) <- 0
 Moran.I(nvi$tisza, weight.matrix)
 
-
-
-# 
-
-library(sp)
-library(spdep)
-library(ape)
-dis_matrix <- arrow::read_parquet('dis_matrix_full.parquet')
-dis_matrix <- as.matrix(dis_matrix)
-rownames(dis_matrix) <- colnames(dis_matrix)
-
-# problem: dis_matrix more rows than nvi
-# just short solution to see the Moran.I --> will be fixed later in prev codes
-c(nrow(dis_matrix),nrow(nvi))
-
-setdiff(colnames(dis_matrix),nvi$name)
-table(nvi$name)[table(nvi$name)>1]
-table(colnames(dis_matrix))[table(colnames(dis_matrix))>1]
-table(nvi$name)[table(nvi$name)>1]
-
-na.omit(dis_matrix['Balatoncsicsó',])
-
-
-nvi[nvi$name=='Foktő',]
-
-weight_matrix <- 1/dis_matrix^2
-# rm(dis_matrix)
-
-Moran.I(nvi$tisza, weight_matrix)
-nrow(nvi)
-nrow(weight_matrix)
-
-dis_matrix <- dis_matrix[intersect(colnames(weight_matrix), nvi$name),]
-
-
-
-nvi <- nvi[nvi$name!='Budapest',]
-
-cnames <- colnames(weight_matrix)
-cnames <- cnames[order(cnames)]
-nnames <- nvi$name
-nnames <- nnames[order(nnames)]
-
-cnames <- cnames[!cnames %in% c('Budapest')]
+# dnearneigh(sp::coordinates(teradat[,7:8]), 0,40, longlat=TRUE) --> ezt megcsinalni
+# fidesz-tisza es tobbi parositas kulonbozet --> arra Moran's I
+  # ima, hogy ne legyen
+# utana OLS regressio --> tobbfele dummy
+# orszagjarastol eltelt ido
+  # valasztasig eltelt napok szama
+  # days_to_election valtozo --> csak 130 lesz --> ahol nincs: vmi jo nagy szam
+    # interakcios tag a magyar peter dummyval --> 0 kinullazza

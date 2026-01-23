@@ -1,6 +1,7 @@
 setwd("/Users/mac/Downloads/egyetem/TDK/magyar_petered_main/magyar_petered/data")
 
-# ==== 1. Read-in shapefile of settlements ====
+# ==== 1. Geodata preparation ==== 
+# ==== 1.1. Read-in shapefile of settlements ====
 library(sf)
 library(leaflet)
 library(stringi)
@@ -26,10 +27,11 @@ hun_shape <- st_read('kozighatarok/admin2.shp')
 hun_shape <- st_make_valid(hun_shape)
 hun_shape <- st_transform(hun_shape, crs = 4326)
 
-# ==== 2. Read-in settlements affected by the campaign ====
+# ==== 1.2. Read-in settlements affected by the campaign ====
 library(ggplot2)
 
 campaign <- readxl::read_excel('magyar_petered_telepulesek.xlsx')
+plot.path <- '/Users/mac/Downloads/egyetem/TDK/magyar_petered_main/plots/'
 
 # load campaign to shape_df as logical data
 shape_df$is_mped <- shape_df$name %in% campaign$is_magyar_petered
@@ -50,7 +52,10 @@ ggplot(shape_df) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
         axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank()) +
   guides(fill = guide_legend(title.position = "top", title.hjust = 0.5))
+# ggsave(filename=paste0(plot.path, '01_mp_orszagjaras.png'), 
+#   width = 2000, height = 1500, units = "px", dpi = 300)
 
+# ==== 1.3. Plot the result ====
 ggplot(shape_df) +
   geom_sf(data=hun_shape, fill='white', size=0.3,color='black') +
   geom_sf(aes(fill = is_fideszed)) +
@@ -65,6 +70,8 @@ ggplot(shape_df) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
         axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank()) +
   guides(fill = guide_legend(title.position = "top", title.hjust = 0.5))
+# ggsave(filename=paste0(plot.path, '02_fidesz_orszagjaras.png'), 
+#   width = 2000, height = 1500, units = "px", dpi = 300)
 
 ggplot(shape_df) +
   geom_sf(data=hun_shape, fill='white', size=0.3,color='black') +
@@ -80,8 +87,10 @@ ggplot(shape_df) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
         axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank()) +
   guides(fill = guide_legend(title.position = "top", title.hjust = 0.5))
+# ggsave(filename=paste0(plot.path, '03_dk_orszagjaras.png'), 
+# width = 2000, height = 1500, units = "px", dpi = 300)
 
-# ==== 3. Add points to the dataframe ====
+# ==== 1.4. Add points to the dataframe ====
 points <- st_read('kozighatarok/place.shp')
 points <- points[,c('NAME','geometry')]
 points <- st_make_valid(points)
@@ -102,32 +111,21 @@ df$y <- st_coordinates(points)[,2]
 # save the result to a shapefile
 # st_write(points, 'placev2.shp')
 
-# ==== 4. Plot points ====
-ggplot(shape_df) +
-  geom_sf(data=hun_shape, fill='white', size=0.3,color='black') +
-  geom_sf(data=points, fill='white', size=0.3,color='black') +
-  geom_sf(aes(fill = is_mped)) +
-  scale_fill_manual(
-    values = c('FALSE'='#ed4551', 'TRUE'='#24b574'),
-    labels = c('Nem', 'Igen'),
-    name = 'Meglátogatott?'
-  ) + theme_minimal() +
-  theme(legend.position='bottom') +
-  labs(title = 'Magyar Péter által országjárt települések') +
-  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-        axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank()) +
-  guides(fill = guide_legend(title.position = "top", title.hjust = 0.5))
-
 ggplot() +
   geom_sf(data=hun_shape, fill='white', size=0.3,color='black') +
   geom_sf(data=points, fill='white', size=0.3,color='black') +
   geom_sf(data=shape_df, fill='transparent', size=0.1,color='black') +
   theme_minimal() +
+  theme(legend.position='bottom') +
+  labs(title = 'Magyarországi települések középpontja és a települések határai') +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
         axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank()) +
   guides(fill = guide_legend(title.position = "top", title.hjust = 0.5))
+# ggsave(filename=paste0(plot.path, '04_telepulesek.png'), 
+# width = 2000, height = 1500, units = "px", dpi = 300)
 
-# ==== 5. Read-in KSH data ====
+
+# ==== 2. KSH data preparation ====
 #  disclaimer
 # Ahogy látható, az ebben a kódban használt táblák egy másik mappában vannak.
 # Ennek oka, hogy a TEIR, a Timea és a Népszámlálás oldaláról letöltött adatokkal
@@ -147,7 +145,7 @@ ggplot() +
 setwd("~/Downloads/egyetem/TDK/magyar_petered_main/ksh_data")
 goods <- list.files('1_jó')
 
-# ---- Load 28 files from 1_jo (Timea data) ----
+# ---- 2.1. Load 28 files from 1_jo (Timea data) ----
 rename_col <- function(df, old_name, new_name){
   names(df)[names(df) == old_name] <- new_name
   return (df)
@@ -167,7 +165,7 @@ for (i in 1:length(goods)){
   df <- merge(df, mini_df, by.x='id', by.y = 'ELEM_KOD', all.x = TRUE)
 }
 
-# ---- Load 3 files from 0_problemas (Timea data) ----
+# ---- 2.2. Load 3 files from 0_problemas (Timea data) ----
 # In these tables, the interesting thing is the change from 2012 to 2023.
 
 load_table <- function(filename){
@@ -199,7 +197,7 @@ df <- merge(df, routes, by.x='id', by.y='ELEM_KOD')
 df <- merge(df, flats, by.x='id', by.y='ELEM_KOD')
 df <- merge(df, buildings, by.x='id', by.y='ELEM_KOD')
 
-# --- Load detailed age and education data from Nepszamlalas 2022 ----
+# --- 2.3. Load detailed age and education data from Nepszamlalas 2022 ----
 load_nepszamlalas <- function(filename,getpop=FALSE){
   df <- readxl::read_excel(filename)
   df[is.na(df)] <- 0
@@ -230,11 +228,11 @@ desc[csvin$name==desc$name,]$description <- csvin$description
 colnames(df)[10:54] <- desc$name
 df[is.na(df)] <- 0
 
-# ==== 6. Plot data ====
+# ==== 2.4. Plot data ====
 # can be found in plot_ksh_data.R
 
-# ==== 7. Descriptive statistic of timea ====
-# --- 7.1. Get frequency table ----
+# ==== 3. Descriptive statistic of timea ====
+# --- 3.1. Get frequency table ----
 library(plyr)
 munis_df <- data.frame()
 munis_df <- df[1:10,'id']
@@ -260,7 +258,7 @@ add_values <- data.frame(Var1=c('4-times top10','3-times top10','2-times top10',
 
 top.result <- rbind(top_values,add_values)
 
-# ---- 7.2. Add geometry to the values table ----
+# ---- 3.2. Add geometry to the values table ----
 munis <- merge(values, df, by.x='Var1',by.y='name')
 munis <- st_as_sf(munis)
 munis[munis$Freq<5,c('x','y')] <- c(NA,NA)
@@ -272,25 +270,29 @@ ggplot(munis) +
   geom_label(aes(x = x, y = y, label = Var1),
             hjust = 0, nudge_y = 0.1,
             size = 1.5, fill='white',color = "black") +
-  scale_fill_viridis_b(option = 'viridis') +
+  scale_fill_viridis_b(option = 'viridis', name='Gyakoriság') +
   theme_minimal() +
   theme(legend.position='bottom') +
-  labs(title = 'A kiválasztott adatokban legmagasabb \n értékekkel rendelkező települések', ) +
+  labs(title = 'A kiválasztott adatokban legmagasabb \n értékekkel rendelkező települések') +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
         axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank())
+# ggsave(filename=paste0(plot.path, '05_top_telepulesek.png'), 
+#   width = 2000, height = 1500, units = "px", dpi = 300)
 
-# ==== 8. PCA and correlations ====
-# ---- 8.1. Correlation matrix ----
-library(corrplot)
-
-# apply logs and save to stat table
-
+# ==== 4. PCA and correlations ====
+# apply logs
+test <- df
 for (i in desc$name){
   if (desc[desc$name==i,'using_log1p']==1) {df[[i]] <- log1p(df[[i]])}
 }
 
+# ---- 4.1. Correlation matrix ----
+library(corrplot)
+
 cor.mat <- cor(as.data.frame(df[,10:54]))
+png(filename = paste0(plot.path, '06_corr_matrix.png'), width = 1200, height = 1200, res = 120)
 corrplot(cor(as.data.frame(df[,10:54])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
+dev.off()
 
 # only medium and strong correlation
 cor.mat[abs(cor.mat)<0.3] <- 0
@@ -315,7 +317,7 @@ corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
   # 2 pairs: big_flats-flat_area, prof_per_stud-childs_per_nursery_school
   # 3 other with nepszamlalas data
 
-# ---- 8.2. PCA analysis ----
+# ---- 4.2. PCA analysis ----
 pca.analysis <- prcomp(df[,10:54], center=TRUE, scale.=TRUE)
 summary(pca.analysis)
 
@@ -324,16 +326,19 @@ summary(pca.analysis)
 flat.pca.analysis <- prcomp(df[,c('flat_area','big_flats')], center=TRUE, scale.=TRUE)
 summary(flat.pca.analysis)
 df$flat.pca <- flat.pca.analysis$x[,1]
+cor(df[,c('flat_area', 'flat.pca')]) # if flat is big --> PCA negative
 
 # childs_per_nursery_school, prof_per_stud
 stud.pca.analysis <- prcomp(df[,c('childs_per_nursery_school','prof_per_stud')], center=TRUE, scale.=TRUE)
 summary(stud.pca.analysis)
 df$stud.pca <- stud.pca.analysis$x[,1]
+cor(df[,c('childs_per_nursery_school', 'stud.pca')]) # if lot of childs --> PCA negative
 
 # car, businesses, szja
 szja.pca.analysis <- prcomp(df[,c('cars','businesses','szja')], center=TRUE, scale.=TRUE)
 summary(szja.pca.analysis)
 df$szja.pca <- szja.pca.analysis$x[,1]
+cor(df[,c('szja', 'szja.pca')]) # great szja --> PCA positive
 
 # age0, age10, age20, age30, age40
 younger.age.pca.analysis <- prcomp(df[,c('age0','age10','age20','age60','age70')], center=TRUE, scale.=TRUE)
@@ -342,11 +347,16 @@ age.X <- df[,c('age0','age10','age20','age60','age70')]
 pca.age.rotated <- psych::principal(age.X, rotate="varimax", nfactors=2, scores=TRUE)
 df$age.pca1 <- pca.age.rotated$scores[,1]
 df$age.pca2 <- pca.age.rotated$scores[,2]
+round(cor(df[,c('age20','age60','age.pca1', 'age.pca2')]),4)
+  # lot of age20 --> greater age.pca1
+  # lot of age60 --> lower age.pca2
 
 # leaving_exam, uni
 uni.pca.analysis <- prcomp(df[,c('leaving_exam','uni')], center=TRUE, scale.=TRUE)
 summary(uni.pca.analysis)
 df$uni.pca <- uni.pca.analysis$x[,1]
+round(cor(df[,c('uni','uni.pca')]),4)
+  # lot of uni graduated --> greater uni.pca
 
 col.names <- c("name", "id", "is_mped", "is_fideszed", "is_dked", "geometry",
   "point", "x", "y", "animal_unity", "big_flats", "waste_collection",
@@ -369,8 +379,8 @@ exclude_idx <- match(c("flat_area", "big_flats", "childs_per_nursery_school",
 exclude_idx <- exclude_idx[!is.na(exclude_idx)]
 select_idx <- setdiff(10:ncol(df), exclude_idx)
 
-# ==== 9. Spatial autocorrelation of TISZA support ====
-# ----- 9.1. Load NVI data -----
+# ==== 5. Spatial autocorrelation of TISZA support ====
+# ---- 5.1. Load NVI data -----
 setwd("~/Downloads/egyetem/TDK/magyar_petered_main/ksh_data")
 
 library(ape)
@@ -466,8 +476,36 @@ ggplot(moran.i.values, aes(x = range.min)) +
     x = 'Distance range (km)', y = "Moran's I")
 
 # ==== 10. OLS regression without time ====
+# ---- 10.0. Preparing for modelling ----
+library(boot)
+
+# avoid absolute 0 for modelling
+df$tisza <- df$tisza+0.001
+df$fidesz <- df$fidesz+0.001
+df$bal <- df$bal+0.001
+
+# cross validated r^2
+cv.r2 <- function(formula_str, target){
+  df.mod <- df
+  set.seed(17)
+  df.mod$fold <- sample(1:10,size = nrow(df.mod),replace = TRUE)
+  # barplot(table(df.mod$fold))
+  RSqr <- rep(NA, 10)
+
+  for (fold in unique(df.mod$fold)) {
+    current_ols <- lm(as.formula(formula_str), data = df.mod[df.mod$fold!=fold,])
+    pred_y <- predict(current_ols, newdata=df.mod[df.mod$fold==fold,])
+    RSqr[fold] <- cor(pred_y, df.mod[[target]][df.mod$fold==fold])^2
+  }
+  return(RSqr)
+}
+
 # ---- 10.1. TISZA regression ----
-predictors1.tisza <- c(
+library(zoo)
+library(car)
+library(lmtest)
+
+predictors0.tisza <- c(
   "is_mped", "animal_unity", "waste_collection", "flat_sewage", "criminals",
   "sewage_quantity", "collected_waste", "gas_consumption",
   "electricity_consumption", "cultural_programs", "newborns",
@@ -477,41 +515,97 @@ predictors1.tisza <- c(
   "building_permissions", "age90", "lower_elementary", "elementary",
   "degree", "flat.pca", "stud.pca", "szja.pca",
   "age.pca1", "age.pca1", "age30", "age40","age50", "uni.pca", "is_fideszed",
-  "is_dked", "tisza"
+  "is_dked"
+)
+
+formula_str0.tisza <- paste("tisza ~", paste(predictors0.tisza, collapse = " + "))
+model0.tisza <- lm(as.formula(formula_str0.tisza), data = df)
+summary(model0.tisza)
+car::vif(model0.tisza)
+bptest(model0.tisza, studentize = TRUE) # heterosked model --> interpret with HC
+coeftest(model0.tisza, vcov = hccm(model0.tisza)) # fails bc of uni.pca
+c(cv.r2(formula_str0.tisza, 'tisza'), summary(model0.tisza)$adj.r.squared) # big difference
+
+predictors1.tisza <- c(
+  "is_mped", "animal_unity", "waste_collection", "flat_sewage", "criminals",
+  "sewage_quantity", "collected_waste", "gas_consumption",
+  "electricity_consumption", "cultural_programs", "newborns",
+  "deaths", "marriages", "net_subs", "small_stores", "estate_area",
+  "pensioneers", "migration_diff", "crop_field", "habitans_per_flats",
+  "fertility_rate", "len_routes_diff", "flats",
+  "building_permissions", "age90", "lower_elementary", "elementary",
+  "degree", "flat.pca", "stud.pca", "szja.pca",
+  "age.pca1", "age.pca1", "age30", "age40","age50", "is_fideszed",
+  "is_dked"
 )
 
 formula_str1.tisza <- paste("tisza ~", paste(predictors1.tisza, collapse = " + "))
 model1.tisza <- lm(as.formula(formula_str1.tisza), data = df)
 summary(model1.tisza)
 car::vif(model1.tisza)
+bptest(model1.tisza, studentize = TRUE) # heterosked model --> interpret with HC
+coeftest(model1.tisza, vcov = hccm(model1.tisza))
+plot(model1.tisza, which=1)
+mean(cv.r2(formula_str1.tisza, 'tisza'))
 
 predictors2.tisza <- c(
-  "is_mped", "flat_sewage", "criminals", "collected_waste", "gas_consumption",
-  "electricity_consumption", "cultural_programs", "estate_area", "habitans_per_flats", "flats",
-   "lower_elementary", "elementary", "degree", "flat.pca", "stud.pca", "szja.pca", "age.0_40.pca2",
-  "age.50plus.pca", "uni.pca"
+  "is_mped", "flat_sewage", "collected_waste",
+  "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
+  "flats", "lower_elementary", "elementary", "degree",
+   "stud.pca", "szja.pca", "age40", 'is_dked'
 ) # dropped non-significant variables
 formula_str2.tisza <- paste("tisza ~", paste(predictors2.tisza, collapse = " + "))
 model2.tisza <- lm(as.formula(formula_str2.tisza), data = df)
 summary(model2.tisza)
-car::vif(model2.tisza) # uni.pca: 45.165025 --> how???
-cor(data.frame(df$szja.pca, df$uni.pca)) # 0.7411074 strong correlation with szja.pca!
+car::vif(model2.tisza)
+bptest(model2.tisza, studentize = TRUE)
+coeftest(model2.tisza, vcov = hccm(model2.tisza))
+mean(cv.r2(formula_str2.tisza, 'tisza'))
 
 predictors3.tisza <- c(
-  "is_mped", "flat_sewage", "criminals", "collected_waste", "gas_consumption",
-  "electricity_consumption", "cultural_programs", "estate_area", "habitans_per_flats", "flats",
-   "lower_elementary", "elementary", "degree", "flat.pca", "stud.pca", "szja.pca", "age.0_40.pca2",
-  "age.50plus.pca"
-) # dropped uni.pca
+  "is_mped", "flat_sewage", "collected_waste", "gas_consumption",
+   "cultural_programs", "estate_area", "crop_field", "flats", "degree",
+   "stud.pca", "szja.pca", "age40"
+) # dropped insignif from model2
 formula_str3.tisza <- paste("tisza ~", paste(predictors3.tisza, collapse = " + "))
 model3.tisza <- lm(as.formula(formula_str3.tisza), data = df)
 summary(model3.tisza)
 car::vif(model3.tisza) # all good, nothing above 5
+bptest(model3.tisza, studentize = TRUE) # heterosked --> HC
+coeftest(model3.tisza, vcov = hccm(model3.tisza))
+mean(cv.r2(formula_str3.tisza, 'tisza'))
 
-BIC(model1.tisza, model2.tisza, model3.tisza)
+ic.tisza <- data.frame(
+  name=c('model0.tisza', 'model1.tisza', 'model2.tisza', 'model3.tisza'),
+  AIC=AIC(model0.tisza, model1.tisza, model2.tisza, model3.tisza)$AIC,
+  BIC=BIC(model0.tisza, model1.tisza, model2.tisza, model3.tisza)$BIC
+)
 
-corrplot(cor(as.data.frame(df[,predictors2.tisza])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
+ggplot(ic.tisza, aes(x=name, y=AIC)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.tisza$AIC), max(ic.tisza$AIC)*0.9)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'AIC Modelleredmenyek', subtitle = 'legkisebb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
+
+ggplot(ic.tisza, aes(x=name, y=BIC)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.tisza$BIC), max(ic.tisza$BIC)*0.9)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'BIC Modelleredmenyek', subtitle = 'legkisebb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
+
+corrplot(cor(as.data.frame(df[,predictors3.tisza])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
 cor(data.frame(df$szja.pca, df$uni.pca))
+
+boot.results.tisza <- Boot(model3.tisza, R = 1000)
+summary(boot.results.tisza)
+hist(boot.results.tisza, layout = c(3, 2))
+plot(model3.tisza, which=1)
+cv.r2(formula_str3.tisza, 'tisza')
+ggplot(df, aes(x=tisza)) +geom_histogram()
 
 # ---- 10.2. FIDESZ regression ----
 predictors1.fidesz <- c(
@@ -523,28 +617,37 @@ predictors1.fidesz <- c(
   "fertility_rate", "len_routes_diff", "flats",
   "building_permissions", "age90", "lower_elementary", "elementary",
   "degree", "flat.pca", "stud.pca", "szja.pca",
-  "age.pca1", "age.pca1", "age30", "age40","age50", "uni.pca", "is_mped",
+  "age.pca1", "age.pca1", "age30", "age40","age50", "is_mped",
   "is_dked"
-)
+) # drop uni.pca because of same reasons
 
 formula_str1.fidesz <- paste("fidesz ~", paste(predictors1.fidesz, collapse = " + "))
 model1.fidesz <- lm(as.formula(formula_str1.fidesz), data = df)
 summary(model1.fidesz)
 car::vif(model1.fidesz)
+bptest(model1.fidesz, studentize = TRUE) # heterosked --> HC
+coeftest(model1.fidesz, vcov = hccm(model1.fidesz))
 
 predictors2.fidesz <- c(
   "is_fideszed", "waste_collection", "collected_waste", "gas_consumption",
-  "electricity_consumption", "net_subs", "pensioneers", "migration_diff", 
+  "electricity_consumption", "net_subs", "pensioneers", 
   "crop_field", "habitans_per_flats", "flat.pca", "stud.pca", "szja.pca",
-  "age.0_40.pca2", "uni.pca", "is_dked"
+  "age40", "uni.pca", "is_dked"
 )
 
 formula_str2.fidesz <- paste("fidesz ~", paste(predictors2.fidesz, collapse = " + "))
 model2.fidesz <- lm(as.formula(formula_str2.fidesz), data = df)
 summary(model2.fidesz)
 car::vif(model2.fidesz)
+bptest(model2.fidesz, studentize = TRUE) # heterosked --> HC
+coeftest(model2.fidesz, vcov = hccm(model2.fidesz))
 
+AIC(model1.fidesz, model2.fidesz) # model1 slightly better
 BIC(model1.fidesz, model2.fidesz) # model2 better
+
+boot.results.fidesz <- Boot(model2.fidesz, R = 1000)
+summary(boot.results.fidesz)
+hist(boot.results.fidesz, layout = c(3, 2))
 
 # ---- 10.3. DK regression ----
 predictors1.bal <- c(
@@ -568,10 +671,8 @@ car::vif(model1.bal)
 predictors2.bal <- c(
   "is_dked", "animal_unity", "collected_waste",
   "deaths", "net_subs", "estate_area",
-  "pensioneers", "crop_field", "habitans_per_flats",
-  "lower_elementary", "elementary",
-  "degree", "flat.pca", "stud.pca",
-  "age.50plus.pca", "uni.pca", "is_mped"
+  "pensioneers", "crop_field", "habitans_per_flats", "flat.pca", "stud.pca",
+  "age40", 'age50', "uni.pca", "is_mped"
 )
 
 formula_str2.bal <- paste("bal ~", paste(predictors2.bal, collapse = " + "))
@@ -579,10 +680,62 @@ model2.bal <- lm(as.formula(formula_str2.bal), data = df)
 summary(model2.bal)
 car::vif(model2.bal)
 
-# heteroskedasticity test
-# ertelmezesek, hogy mi volt logolva, mi nem
+predictors3.bal <- c(
+  "is_dked", "animal_unity", "collected_waste", "net_subs", "estate_area",
+  "pensioneers", "crop_field", "habitans_per_flats", "flat.pca", "stud.pca",
+  "age40", "uni.pca", "is_mped"
+)
+
+formula_str3.bal <- paste("bal ~", paste(predictors3.bal, collapse = " + "))
+model3.bal <- lm(as.formula(formula_str3.bal), data = df)
+summary(model3.bal)
+car::vif(model3.bal)
+bptest(model3.bal, studentize = TRUE) # heterosked --> HC
+coeftest(model3.bal, vcov = hccm(model3.bal))
+
+AIC(model1.bal, model2.bal, model3.bal) # model 1 best
+BIC(model1.bal, model2.bal, model3.bal) # model 3 ever better
+
 # pca hol negativ-pozitiv
-# modellek r-negyzete keresztvalidacioval (stabilitas teszt)
+
+# ==== 11. LASSO regression of the models ====
+library(glmnet)
+
+fitted.vals1.tisza <- pmin(pmax(fitted(model1.tisza), 0.001), 0.999)
+wts1.tisza <- 1 / (fitted.vals1.tisza * (1-fitted.vals1.tisza))
+library(glmnet)
+lasso1.tisza <- glmnet(x=model.matrix(model1.tisza)[, -1], y=model1.tisza$model$tisza,
+weights = wts1.tisza, alpha=1, family = 'gaussian')
+cv.lasso1.tisza <- cv.glmnet(x=model.matrix(model1.tisza)[, -1], y=model1.tisza$model$tisza,
+weights = wts1.tisza, alpha=1, family = 'gaussian')
+plot(lasso1.tisza)
+plot(cv.lasso1.tisza)
+coef(cv.lasso1.tisza, s = "lambda.min")
+
+library(selectiveInference)
+lasso_inf <- fixedLassoInf(x = model.matrix(model1.tisza)[, -1], 
+                           y = model1.tisza$model$tisza,
+                           beta = coef(cv.lasso1.tisza, s = "lambda.1se")[-1], 
+                           lambda = cv.lasso1.tisza$lambda.1se,
+                           family = "gaussian")
+                           
+lasso_inf
+
+data.frame('vars'=names(lasso_inf$vars), 'coef'=lasso_inf$coef0, 'p-value'=lasso_inf$pv)
+
+# 1. Get the predictions made during Cross-Validation
+# 's = "lambda.min"' uses the optimal lambda found during CV
+preds_cv <- predict(cv_lasso, newx = x_vars, s = "lambda.min")
+
+# 2. Calculate Sum of Squared Errors (SSE) and Total Sum of Squares (SST)
+sse <- sum((preds_cv - y_var)^2)
+sst <- sum((y_var - mean(y_var))^2)
+
+# 3. Calculate CV R-squared
+r2_cv_lasso <- 1 - (sse / sst)
+
+print(paste("Cross-Validated Lasso R-squared:", r2_cv_lasso))
+
 
 # ==== 12. OLS regression with time ====
 

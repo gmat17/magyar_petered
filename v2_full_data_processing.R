@@ -792,26 +792,27 @@ ggplot(ic.bal, aes(x=name, y=BIC)) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
   plot.subtitle = element_text(hjust = 0.5))
 
-# ==== 8. OLS regression with time ====
-
-# ==== 9. OLS regression with distance ====
+# ==== 8. OLS regression with distance ====
 # with closest muni based on the matrix
 mped.cities <- df[df$is_mped==T,'name']
 mped <- durationsSymm[,mped.cities]
 c(nrow(mped), ncol(mped)) # 3153x184 matrix
   # all muni in rows
   # only mped rows in columns --> look up for the smallest!
-copia <- df[c('name', 'tisza')]
+copia <- df
 
+# valtozo neveket atirni ertelmesebbre, egysegesebbre
 min.name <- c()
 min.id <- c()
 closest.value <- c()
+min.result <- c()
 
 for(i in 1:nrow(df)){
   closest.city <- which.min(mped[copia[i,'name'],])
   closest.city <- rownames(as.matrix(closest.city))
   min.name <- c(min.name, closest.city)
   closest.result <- copia[copia$name==closest.city,'tisza']
+  min.result <- c(min.result, closest.result)
   closest.distance <- mped[i,closest.city]
   closest.value <- c(closest.value, closest.distance)
 }
@@ -820,37 +821,103 @@ copia$closest.mp.name <- min.name
 copia$st.name <- mp.effect$nearest_mp.name
 copia$closest.mp.value <- closest.value
 copia$st.value <- mp.effect$closest.mp
-copia$closest.result <- closest.result
+copia$closest.result <- min.result
 copia$diff.from.closest <- copia$tisza-copia$closest.result
 
 hist(copia$closest.mp.value)
 hist(copia[copia$closest.mp.value<100,'closest.mp.value'])
 hist(mp.effect$closest.mp)
+hist(log1p(copia[copia$closest.mp.value<100,'closest.mp.value']))
 
-View(mp.effect[,c('name', 'nearest_mp.name')])
+# View(mp.effect[,c('name', 'nearest_mp.name')])
 
 ggplot(copia, aes(x=closest.mp.value, y=tisza)) +
   geom_point() +
-  geom_smooth(method = "lm", col = "red")
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
 
-ggplot(copia, aes(x=log(closest.mp.value), y=tisza)) +
+ggplot(copia, aes(x=closest.log, y=tisza)) +
   geom_point() +
-  geom_smooth(method = "lm", col = "red")
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
+
+boxplot(copia$closest.mp.value)
+boxplot(log1p(copia$closest.mp.value))
+boxplot(copia$closest.log)
+copia$closest.log <- log1p(copia$closest.mp.value)
+
+lower.tukey <- quantile(log1p(copia$closest.mp.value))[2]-(quantile(log1p(copia$closest.mp.value))[4]-quantile(log1p(copia$closest.mp.value))[2])*1.5
+
+copia[copia$closest.log<lower.tukey,'closest.log'] <- lower.tukey
 
 ggplot(copia[copia$closest.mp.value<100,], aes(x=closest.mp.value, y=tisza)) +
   geom_point() +
-  geom_smooth(method = "lm", col = "red")
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
 
-ggplot(copia[copia$closest.mp.value<100,], aes(x=log(closest.mp.value), y=tisza)) +
+ggplot(copia[(copia$closest.mp.value<100)&(copia$closest.mp.value>0),], aes(x=log1p(closest.mp.value), y=tisza)) +
   geom_point() +
-  geom_smooth(method = "lm", col = "red")
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
+
+summary(lm(tisza~closest.mp.value, data=copia))$r.squared
+summary(lm(tisza~log1p(closest.mp.value), data=copia))$r.squared
+summary(loess(tisza~log1p(closest.mp.value), data=copia))
 
 # got the same result as from the previous method
 # good method gives good solutions!
 
-which.min(mped[c('Aba', 'Zamárdi'),])
-?which.min()
-durationsSymm[,!mped.cities]
+ggplot(copia[copia$closest.mp.value<100,], aes(x=closest.mp.value, y=diff.from.closest)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red")
+
+ggplot(copia[copia$closest.mp.value<100,], aes(x=log1p(closest.mp.value), y=diff.from.closest)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red")
+
+# miket erdemes modellezni
+  # nincs closest.mp, dummy-val
+  # closest.mp linearisan
+  # closest.mp logolva
+  # closest.mp negyzetesen
+  # closest.mp logolva es log negyzetesen
+  # osszehasonlitas: IC es cv.r2
+
+predictors4.tisza <- c(
+  "closest.mp.value", "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
+  "flats", "lower_elementary", "elementary", "degree",
+   "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'is_dked'
+) # dropped non-significant variables
+formula_str4.tisza <- paste("tisza ~", paste(predictors4.tisza, collapse = " + "))
+model4.tisza <- lm(as.formula(formula_str4.tisza), data = copia)
+summary(model4.tisza)
+car::vif(model4.tisza)
+bptest(model4.tisza, studentize = TRUE)
+coeftest(model4.tisza, vcov = hccm(model4.tisza))
+model4.tisza.r2 <- cv.r2(formula_str4.tisza, 'tisza', copia)
+barplot(model4.tisza.r2,xlab='folds',ylab='R-squared')
+mean(model4.tisza.r2)
+
+BIC(model4.tisza, model2.tisza)
+
+predictors5.tisza <- c(
+  "log1p(closest.mp.value)", "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
+  "flats", "lower_elementary", "elementary", "degree",
+   "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'is_dked'
+) # dropped non-significant variables
+formula_str5.tisza <- paste("tisza ~", paste(predictors5.tisza, collapse = " + "))
+model5.tisza <- lm(as.formula(formula_str5.tisza), data = copia)
+summary(model5.tisza)
+car::vif(model5.tisza)
+bptest(model5.tisza, studentize = TRUE)
+coeftest(model5.tisza, vcov = hccm(model5.tisza))
+model5.tisza.r2 <- cv.r2(formula_str5.tisza, 'tisza', copia)
+barplot(model5.tisza.r2,xlab='folds',ylab='R-squared')
+mean(model5.tisza.r2)
+
+BIC(model5.tisza, model2.tisza)
+
+# todelete later ----
 
 # with st_nearest_feature
 labeled.munis <- st_as_sf(df[df$is_mped==T,c('id', 'name', 'point')], crs=4326)
@@ -893,4 +960,6 @@ barplot(model4.tisza.r2,xlab='folds',ylab='R-squared')
 mean(model4.tisza.r2)
 
 BIC(model4.tisza, model2.tisza) # model 4 better!
+
+# ==== 9. OLS regression with time ====
 

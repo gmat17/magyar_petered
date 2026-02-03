@@ -198,6 +198,12 @@ df <- merge(df, flats, by.x='id', by.y='ELEM_KOD')
 df <- merge(df, buildings, by.x='id', by.y='ELEM_KOD')
 
 # --- 2.3. Load detailed age and education data from Nepszamlalas 2022 ----
+# A Népszámlálásnál már többet módosítottam a táblán, levágtam a felesleges sorokat, és a …
+# karaktert 0-ra cseréltem. A részletes változtatások a TDK-ban vannak leírva. 
+
+# I modified the tables a little bit stronger at the Nepszamlalas, I've cut the unnecesarry rows
+# and the … character have been replaced by 0. The detailed changes are written in the TDK paper.
+
 load_nepszamlalas <- function(filename,getpop=FALSE){
   df <- readxl::read_excel(filename)
   df[is.na(df)] <- 0
@@ -217,6 +223,18 @@ df <- merge(df, age, by.x='name', by.y='...1')
 edu <- load_nepszamlalas('ksh-census2022-iskola.xlsx',getpop=TRUE)
 df <- merge(df, edu, by.x='name', by.y='...1')
 
+# Religion
+rel <- load_nepszamlalas('ksh-census2022-vallas.xlsx')
+colnames(rel) <- c(colnames(rel)[1:10],'ateist', 'rel_no_ans')
+rel$christian <- rowSums(rel[,c('Katolikus', 'Református', 'Evangélikus', 'Ortodox keresztény',
+'Más keresztény felekezet')])
+df <- merge(df, rel[,c('...1','christian', 'ateist', 'rel_no_ans')], by.x='name', by.y='...1')
+
+roma <- load_nepszamlalas('ksh-census2022-nemzetiseg.xlsx')
+colnames(roma) <- c('city','hun', 'roma', 'other_nat', 'roma_no_ans')
+# rowSums(roma[,c('hun', 'roma', 'other_nat', 'no_ans')])
+df <- merge(df, roma, by.x='name',by.y='city')
+
 # Set up column names
 setwd("/Users/mac/Downloads/egyetem/TDK/magyar_petered_main/magyar_petered/data")
 desc <- readxl::read_excel('ksh_data_concated.xlsx', sheet = 'description')
@@ -228,7 +246,7 @@ desc[csvin$name==desc$name,]$description <- csvin$description
 colnames(df)[10:54] <- desc$name
 df[is.na(df)] <- 0
 
-# ==== 2.4. Plot data ====
+# ---- 2.5. Plot data ----
 # can be found in plot_ksh_data.R
 
 # ==== 3. Descriptive statistic of timea ====
@@ -289,15 +307,15 @@ for (i in desc$name){
 # ---- 4.1. Correlation matrix ----
 library(corrplot)
 
-cor.mat <- cor(as.data.frame(df[,10:54]))
+cor.mat <- cor(as.data.frame(df[,10:62]))
 # png(filename = paste0(plot.path, '06_corr_matrix.png'), width = 1200, height = 1200, res = 120)
-corrplot(cor(as.data.frame(df[,10:54])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
+corrplot(cor(as.data.frame(df[,10:62])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
 # dev.off()
 
 # only medium and strong correlation
 cor.mat[abs(cor.mat)<0.3] <- 0
 corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
-(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 58
+(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 159
 # easy to interpret the similar values
   # upper-left corner: 
     # flat_sewage, szja, flat_area, sewage_quantity, collected_waste, gas_consumption
@@ -308,13 +326,13 @@ corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
 # only medium-strong correlation
 cor.mat[abs(cor.mat)<0.5] <- 0
 corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
-(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 37
+(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 40
 
 # only strongly correlation
 cor.mat[abs(cor.mat)<0.7] <- 0
 corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
 (sum(abs(cor.mat)>0)-nrow(cor.mat))/2
-  # 2 pairs: big_flats-flat_area, prof_per_stud-childs_per_nursery_school
+  # 7 pairs: big_flats-flat_area, prof_per_stud-childs_per_nursery_school
   # 3 other with nepszamlalas data
 
 # ---- 4.2. PCA analysis ----
@@ -368,24 +386,11 @@ df$uni.pca <- uni.pca.analysis$x[,1]
 round(cor(df[,c('uni','uni.pca')]),4)
   # lot of uni graduated --> greater uni.pca
 
-col.names <- c("name", "id", "is_mped", "is_fideszed", "is_dked", "geometry",
-  "point", "x", "y", "animal_unity", "big_flats", "criminals", "szja", "flat_area",
-  "prof_per_stud", "gas_consumption", "electricity_consumption", "cultural_programs", 
-  "newborns", "businesses", "deaths", "marriages", "net_subs", "small_stores",
-  "estate_area", "pensioneers", "migration_diff", "crop_field",
-  "habitans_per_flats", "childs_per_nursery_school", "cars",
-  "fertility_rate", "len_routes_diff", "flats",
-  "building_permissions", "age0", "age10", "age20", "age30", "age40",
-  "age50", "age60", "age70", "age80", "age90", "lower_elementary",
-  "elementary", "degree", "leaving_exam", "uni", "pop", "vox_pop",
-  "turnout", "tisza", "fidesz", "bal", "other", "invalid",
-  "flat.pca", "stud.pca", "szja.pca", "waste.pca", "sewage.pca",
-  'age.pca1', 'age.pca2', 'age30', 'age40', 'age50', "uni.pca")
-
-exclude_idx <- match(c("flat_area", "big_flats", "childs_per_nursery_school", 
-  "prof_per_stud", "cars", "businesses", "szja", "age0", "age10", "age20", "age60", "age70", "age80", "leaving_exam", "uni", 'pop'), colnames(df))
-exclude_idx <- exclude_idx[!is.na(exclude_idx)]
-select_idx <- setdiff(10:ncol(df), exclude_idx)
+# hun, roma
+nat.pca.analysis <- prcomp(df[,c('hun', 'roma')], center=TRUE, scale.=TRUE)
+summary(nat.pca.analysis)
+df$nat.pca <- nat.pca.analysis$x[,1]
+round(cor(df[,c('hun', 'roma')]),4)
 
 # ==== 5. Spatial autocorrelation of TISZA support ====
 # ---- 5.1. Load NVI data -----
@@ -520,11 +525,10 @@ predictors0.tisza <- c(
   "electricity_consumption", "cultural_programs", "newborns",
   "deaths", "marriages", "net_subs", "small_stores", "estate_area",
   "pensioneers", "migration_diff", "crop_field", "habitans_per_flats",
-  "fertility_rate", "len_routes_diff", "flats",
-  "building_permissions", "age90", "lower_elementary", "elementary",
-  "degree", "flat.pca", "stud.pca", "szja.pca", "waste.pca", "sewage.pca",
-  "age.pca1", "age.pca1", "age30", "age40","age50", "uni.pca", "is_fideszed",
-  "is_dked"
+  "fertility_rate", "len_routes_diff", "flats", "building_permissions", "age90", 
+  "lower_elementary", "elementary", "degree", "christian", "ateist", "rel_no_ans",
+  "roma_no_ans", "flat.pca", "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age.pca1", 
+  "age.pca1", "age30", "age40","age50", "uni.pca", 'nat.pca',"is_fideszed", "is_dked"
 )
 
 formula_str0.tisza <- paste("tisza ~", paste(predictors0.tisza, collapse = " + "))
@@ -542,11 +546,10 @@ predictors1.tisza <- c(
   "electricity_consumption", "cultural_programs", "newborns",
   "deaths", "marriages", "net_subs", "small_stores", "estate_area",
   "pensioneers", "migration_diff", "crop_field", "habitans_per_flats",
-  "fertility_rate", "len_routes_diff", "flats",
-  "building_permissions", "age90", "lower_elementary", "elementary",
-  "degree", "flat.pca", "stud.pca", "szja.pca", "waste.pca", "sewage.pca",
-  "age.pca1", "age.pca1", "age30", "age40","age50", "is_fideszed",
-  "is_dked"
+  "fertility_rate", "len_routes_diff", "flats", "building_permissions", "age90", 
+  "lower_elementary", "elementary", "degree", "christian", "ateist", "rel_no_ans",
+  "roma_no_ans", "flat.pca", "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age.pca1", 
+  "age.pca1", "age30", "age40","age50", 'nat.pca',"is_fideszed", "is_dked"
 ) # without uni.pca
 
 formula_str1.tisza <- paste("tisza ~", paste(predictors1.tisza, collapse = " + "))
@@ -559,11 +562,14 @@ model1.tisza.r2 <- cv.r2(formula_str1.tisza, 'tisza')
 barplot(model1.tisza.r2,xlab='folds',ylab='R-squared')
 mean(model1.tisza.r2)
 
+# oselmeny a konzervativizmusrol
+# nagykovetek bekeretese
+# lazar vagy navracsics
+
 predictors2.tisza <- c(
-  "is_mped",
-  "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
-  "flats", "lower_elementary", "elementary", "degree",
-   "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'is_dked'
+  "is_mped", "electricity_consumption", "cultural_programs", "estate_area", 
+  "flats", "lower_elementary", "elementary", "degree", "christian", "ateist",
+   "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'nat.pca', 'is_dked'
 ) # dropped non-significant variables
 formula_str2.tisza <- paste("tisza ~", paste(predictors2.tisza, collapse = " + "))
 model2.tisza <- lm(as.formula(formula_str2.tisza), data = df)
@@ -576,10 +582,9 @@ barplot(model2.tisza.r2,xlab='folds',ylab='R-squared')
 mean(model2.tisza.r2)
 
 predictors3.tisza <- c(
-  "is_mped", "gas_consumption",
-   "cultural_programs", "estate_area", "crop_field", "flats", "degree",
-   "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40"
-) # dropped insignif from model2
+  "is_mped", "estate_area", "lower_elementary", "elementary", "degree", "christian",
+  "ateist", "stud.pca", "szja.pca", "sewage.pca"
+) # only signif from model2
 formula_str3.tisza <- paste("tisza ~", paste(predictors3.tisza, collapse = " + "))
 model3.tisza <- lm(as.formula(formula_str3.tisza), data = df)
 summary(model3.tisza)
@@ -619,7 +624,7 @@ cor(data.frame(df$szja.pca, df$uni.pca))
 set.seed(17)
 boot.results.tisza <- Boot(model2.tisza, R = 1000, ncores=4)
 summary(boot.results.tisza)
-hist(boot.results.tisza, layout = c(4, 4))
+hist(boot.results.tisza, layout = c(2, 3))
 plot(model2.tisza, which=1)
 cv.r2(formula_str2.tisza, 'tisza')
 
@@ -629,11 +634,10 @@ predictors1.fidesz <- c(
   "electricity_consumption", "cultural_programs", "newborns",
   "deaths", "marriages", "net_subs", "small_stores", "estate_area",
   "pensioneers", "migration_diff", "crop_field", "habitans_per_flats",
-  "fertility_rate", "len_routes_diff", "flats",
-  "building_permissions", "age90", "lower_elementary", "elementary",
-  "degree", "flat.pca", "stud.pca", "szja.pca", "waste.pca", "sewage.pca",
-  "age.pca1", "age.pca1", "age30", "age40","age50", "is_mped",
-  "is_dked"
+  "fertility_rate", "len_routes_diff", "flats", "building_permissions", "age90", 
+  "lower_elementary", "elementary", "degree", "christian", "ateist", "rel_no_ans",
+  "roma_no_ans", "flat.pca", "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age.pca1", 
+  "age.pca1", "age30", "age40","age50", 'nat.pca',"is_mped", "is_dked"
 ) # drop uni.pca because of same reasons
 
 formula_str1.fidesz <- paste("fidesz ~", paste(predictors1.fidesz, collapse = " + "))
@@ -649,9 +653,9 @@ mean(model1.fidesz.r2)
 predictors2.fidesz <- c(
   "is_fideszed", "gas_consumption",
   "electricity_consumption", "net_subs", "pensioneers", 
-  "crop_field", "habitans_per_flats", "flat.pca", "stud.pca", "szja.pca", "waste.pca",
-  "age40", "uni.pca", "is_dked"
-)
+  "crop_field", "habitans_per_flats", "lower_elementary", "elementary", "degree", "christian",
+  "ateist", "rel_no_ans", "stud.pca", "szja.pca", "sewage.pca", "nat.pca", "is_dked"
+) # dropped insignif variables
 
 formula_str2.fidesz <- paste("fidesz ~", paste(predictors2.fidesz, collapse = " + "))
 model2.fidesz <- lm(as.formula(formula_str2.fidesz), data = df)
@@ -690,7 +694,7 @@ corrplot(cor(as.data.frame(df[,predictors2.fidesz])), method='square', type='upp
 set.seed(17)
 boot.results.fidesz <- Boot(model2.fidesz, R = 1000, ncores=4)
 summary(boot.results.fidesz)
-hist(boot.results.fidesz, layout = c(4, 4))
+hist(boot.results.fidesz, layout = c(2, 3))
 plot(model2.fidesz, which=1)
 cv.r2(formula_str2.fidesz, 'fidesz')
 
@@ -712,7 +716,7 @@ model0.bal <- lm(as.formula(formula_str0.bal), data = df)
 summary(model0.bal)
 car::vif(model0.bal)
 bptest(model0.bal, studentize = TRUE) # heterosked --> HC
-coeftest(model0.bal, vcov = hccm(model0.bal)) # fails because of uni.pca
+ # coeftest(model0.bal, vcov = hccm(model0.bal)) # fails because of uni.pca
 model0.bal.r2 <- cv.r2(formula_str0.bal, 'fidesz')
 barplot(model0.bal.r2,xlab='folds',ylab='R-squared')
 mean(model0.bal.r2)
@@ -722,12 +726,11 @@ predictors1.bal <- c(
   "electricity_consumption", "cultural_programs", "newborns",
   "deaths", "marriages", "net_subs", "small_stores", "estate_area",
   "pensioneers", "migration_diff", "crop_field", "habitans_per_flats",
-  "fertility_rate", "len_routes_diff", "flats",
-  "building_permissions", "age90", "lower_elementary", "elementary",
-  "degree", "flat.pca", "stud.pca", "szja.pca", "waste.pca", "sewage.pca",
-  "age.pca1", "age.pca2", "age30", "age40","age50", "is_mped", "is_fideszed"
+  "fertility_rate", "len_routes_diff", "flats", "building_permissions", "age90", 
+  "lower_elementary", "elementary", "degree", "christian", "ateist", "rel_no_ans",
+  "roma_no_ans", "flat.pca", "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age.pca1", 
+  "age.pca1", "age30", "age40","age50", 'nat.pca',"is_fideszed", "is_mped"
 )
-
 formula_str1.bal <- paste("bal ~", paste(predictors1.bal, collapse = " + "))
 model1.bal <- lm(as.formula(formula_str1.bal), data = df)
 summary(model1.bal)
@@ -739,10 +742,12 @@ barplot(model1.bal.r2,xlab='folds',ylab='R-squared')
 mean(model1.bal.r2)
 
 predictors2.bal <- c(
-  "is_dked", "animal_unity", "net_subs", "estate_area",
-  "pensioneers", "crop_field", "habitans_per_flats", "flat.pca", "stud.pca", "age.pca1",
-  "age.pca2","age40", 'age50', "uni.pca", "is_mped"
-)
+  "is_dked", "animal_unity", "estate_area",
+  "pensioneers", "crop_field", "habitans_per_flats", "len_routes_diff", "lower_elementary",
+  "elementary", "degree", "christian", "ateist", "rel_no_ans", "stud.pca", "sewage.pca",
+  "age.pca1", "age40", "age50", "flat.pca", "stud.pca", "age.pca1",
+  "age.pca2","age40", 'age50', "is_mped"
+) # drop insignificant variables
 
 formula_str2.bal <- paste("bal ~", paste(predictors2.bal, collapse = " + "))
 model2.bal <- lm(as.formula(formula_str2.bal), data = df)
@@ -755,10 +760,10 @@ barplot(model2.bal.r2,xlab='folds',ylab='R-squared')
 mean(model2.bal.r2)
 
 predictors3.bal <- c(
-  "is_dked", "animal_unity", "collected_waste", "net_subs", "estate_area",
-  "pensioneers", "crop_field", "habitans_per_flats", "flat.pca", "stud.pca",
-  "age40", "uni.pca", "is_mped"
-)
+  "is_dked", "animal_unity",
+  "pensioneers", "crop_field", "habitans_per_flats", "ateist", "rel_no_ans", "stud.pca"
+  , "stud.pca", "sewage.pca", "age.pca1", "age40", "age.pca2", "is_mped"
+) # keep only significant or close-to-signif variables
 
 formula_str3.bal <- paste("bal ~", paste(predictors3.bal, collapse = " + "))
 model3.bal <- lm(as.formula(formula_str3.bal), data = df)
@@ -792,86 +797,109 @@ ggplot(ic.bal, aes(x=name, y=BIC)) +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
   plot.subtitle = element_text(hjust = 0.5))
 
-# ==== 8. OLS regression with distance ====
-# with closest muni based on the matrix
+# winner: model3 but model2 is close to it, but be careful with overfitting
+
+# ==== 8. Analysis of the distance to the closest campaign city ====
+# ---- 8.0. Preparation ----
 mped.cities <- df[df$is_mped==T,'name']
 mped <- durationsSymm[,mped.cities]
 c(nrow(mped), ncol(mped)) # 3153x184 matrix
   # all muni in rows
   # only mped rows in columns --> look up for the smallest!
-copia <- df
 
-# valtozo neveket atirni ertelmesebbre, egysegesebbre
-min.name <- c()
-min.id <- c()
-closest.value <- c()
-min.result <- c()
+# matrix el van rontva!!! javitas!!!
+View(mped)
+# Kisvarda vmiert 240 percre van sajat magatol
+mped['Kisvárda','Kisvárda']
+mped['Kisvárda','Zirc']
+
+i <- 1398
+which.min(mped[df[i,'name'],])
+rownames(as.matrix(76))
+
+fidesz.cities <- df[df$is_fideszed==T,'name']
+fideszed <- durationsSymm[,fidesz.cities]
+c(nrow(fideszed), ncol(fideszed))
+
+dk.cities <- df[df$is_dked==T,'name']
+dked <- durationsSymm[,dk.cities]
+c(nrow(dked), ncol(dked))
+
+# add tisza to variables name with llm
+# iterate throught the matrix to get the value of the closest city
+closest.cities <- c()
+closest.id <- c()
+closest.distances <- c()
+closest.tisza <- c()
 
 for(i in 1:nrow(df)){
-  closest.city <- which.min(mped[copia[i,'name'],])
+  # save the current city name
+  current.city <- df[i,'name']
+
+  # save the closest city name
+  closest.city <- which.min(mped[df[i,'name'],])
   closest.city <- rownames(as.matrix(closest.city))
-  min.name <- c(min.name, closest.city)
-  closest.result <- copia[copia$name==closest.city,'tisza']
-  min.result <- c(min.result, closest.result)
-  closest.distance <- mped[i,closest.city]
-  closest.value <- c(closest.value, closest.distance)
+  closest.cities <- c(closest.cities, closest.city)
+
+  # save the result of the closest city
+  current.result <- df[df$name==closest.city,'tisza']
+  closest.tisza <- c(closest.tisza, current.result)
+
+  # save the distance to the closest mp city
+  closest.distance <- mped[current.city,closest.city]
+  closest.distances <- c(closest.distances, closest.distance)
 }
 
-copia$closest.mp.name <- min.name
-copia$st.name <- mp.effect$nearest_mp.name
-copia$closest.mp.value <- closest.value
-copia$st.value <- mp.effect$closest.mp
-copia$closest.result <- min.result
-copia$diff.from.closest <- copia$tisza-copia$closest.result
+df$tisza.closest.city <- closest.cities
+df$tisza.closest.distance <- closest.distances
+df$tisza.closest.result <- closest.tisza
+df$tisza.diff.from.closest <- df$tisza-df$tisza.closest.result
 
-hist(copia$closest.mp.value)
-hist(copia[copia$closest.mp.value<100,'closest.mp.value'])
-hist(mp.effect$closest.mp)
-hist(log1p(copia[copia$closest.mp.value<100,'closest.mp.value']))
+# ---- 8.1. Plots ----
+hist(df$tisza.closest.distance) # need log1p!
+hist(log1p(df[df$tisza.closest.distance,'tisza.closest.distance'])) # outliers at 0
 
-# View(mp.effect[,c('name', 'nearest_mp.name')])
-
-ggplot(copia, aes(x=closest.mp.value, y=tisza)) +
+ggplot(df, aes(x=tisza.closest.distance, y=tisza)) +
   geom_point() +
   geom_smooth(method = "lm", col = "red") +
   geom_smooth(method = "loess", col = "blue")
 
-ggplot(copia, aes(x=closest.log, y=tisza)) +
+ggplot(df, aes(x=log1p(tisza.closest.distance), y=tisza)) +
   geom_point() +
   geom_smooth(method = "lm", col = "red") +
   geom_smooth(method = "loess", col = "blue")
 
-boxplot(copia$closest.mp.value)
-boxplot(log1p(copia$closest.mp.value))
-boxplot(copia$closest.log)
-copia$closest.log <- log1p(copia$closest.mp.value)
+boxplot(df$tisza.closest.distance)
+boxplot(log1p(df$tisza.closest.distance))
+boxplot(df$closest.log)
+df$closest.log <- log1p(df$tisza.closest.distance)
 
-lower.tukey <- quantile(log1p(copia$closest.mp.value))[2]-(quantile(log1p(copia$closest.mp.value))[4]-quantile(log1p(copia$closest.mp.value))[2])*1.5
+lower.tukey <- quantile(log1p(df$tisza.closest.distance))[2]-(quantile(log1p(df$tisza.closest.distance))[4]-quantile(log1p(df$tisza.closest.distance))[2])*1.5
 
-copia[copia$closest.log<lower.tukey,'closest.log'] <- lower.tukey
+df[df$closest.log<lower.tukey,'closest.log'] <- lower.tukey
 
-ggplot(copia[copia$closest.mp.value<100,], aes(x=closest.mp.value, y=tisza)) +
+ggplot(df[df$tisza.closest.distance<100,], aes(x=tisza.closest.distance, y=tisza)) +
   geom_point() +
   geom_smooth(method = "lm", col = "red") +
   geom_smooth(method = "loess", col = "blue")
 
-ggplot(copia[(copia$closest.mp.value<100)&(copia$closest.mp.value>0),], aes(x=log1p(closest.mp.value), y=tisza)) +
+ggplot(df[(df$tisza.closest.distance<100)&(df$tisza.closest.distance>0),], aes(x=log1p(tisza.closest.distance), y=tisza)) +
   geom_point() +
   geom_smooth(method = "lm", col = "red") +
   geom_smooth(method = "loess", col = "blue")
 
-summary(lm(tisza~closest.mp.value, data=copia))$r.squared
-summary(lm(tisza~log1p(closest.mp.value), data=copia))$r.squared
-summary(loess(tisza~log1p(closest.mp.value), data=copia))
+summary(lm(tisza~tisza.closest.distance, data=df))$r.squared
+summary(lm(tisza~log1p(tisza.closest.distance), data=df))$r.squared
+summary(loess(tisza~log1p(tisza.closest.distance), data=df))
 
 # got the same result as from the previous method
 # good method gives good solutions!
 
-ggplot(copia[copia$closest.mp.value<100,], aes(x=closest.mp.value, y=diff.from.closest)) +
+ggplot(df[df$tisza.closest.distance<100,], aes(x=tisza.closest.distance, y=tisza.diff.from.closest)) +
   geom_point() +
   geom_smooth(method = "lm", col = "red")
 
-ggplot(copia[copia$closest.mp.value<100,], aes(x=log1p(closest.mp.value), y=diff.from.closest)) +
+ggplot(df[df$tisza.closest.distance<100,], aes(x=log1p(tisza.closest.distance), y=tisza.diff.from.closest)) +
   geom_point() +
   geom_smooth(method = "lm", col = "red")
 
@@ -883,35 +911,37 @@ ggplot(copia[copia$closest.mp.value<100,], aes(x=log1p(closest.mp.value), y=diff
   # closest.mp logolva es log negyzetesen
   # osszehasonlitas: IC es cv.r2
 
+# ==== 9. OLS regression with distance ====
+# ---- 9. TISZA regression -----
 predictors4.tisza <- c(
-  "closest.mp.value", "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
+  "tisza.closest.distance", "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
   "flats", "lower_elementary", "elementary", "degree",
    "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'is_dked'
 ) # dropped non-significant variables
 formula_str4.tisza <- paste("tisza ~", paste(predictors4.tisza, collapse = " + "))
-model4.tisza <- lm(as.formula(formula_str4.tisza), data = copia)
+model4.tisza <- lm(as.formula(formula_str4.tisza), data = df)
 summary(model4.tisza)
 car::vif(model4.tisza)
 bptest(model4.tisza, studentize = TRUE)
 coeftest(model4.tisza, vcov = hccm(model4.tisza))
-model4.tisza.r2 <- cv.r2(formula_str4.tisza, 'tisza', copia)
+model4.tisza.r2 <- cv.r2(formula_str4.tisza, 'tisza', df)
 barplot(model4.tisza.r2,xlab='folds',ylab='R-squared')
 mean(model4.tisza.r2)
 
 BIC(model4.tisza, model2.tisza)
 
 predictors5.tisza <- c(
-  "log1p(closest.mp.value)", "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
+  "log1p(tisza.closest.distance)", "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
   "flats", "lower_elementary", "elementary", "degree",
    "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'is_dked'
 ) # dropped non-significant variables
 formula_str5.tisza <- paste("tisza ~", paste(predictors5.tisza, collapse = " + "))
-model5.tisza <- lm(as.formula(formula_str5.tisza), data = copia)
+model5.tisza <- lm(as.formula(formula_str5.tisza), data = df)
 summary(model5.tisza)
 car::vif(model5.tisza)
 bptest(model5.tisza, studentize = TRUE)
 coeftest(model5.tisza, vcov = hccm(model5.tisza))
-model5.tisza.r2 <- cv.r2(formula_str5.tisza, 'tisza', copia)
+model5.tisza.r2 <- cv.r2(formula_str5.tisza, 'tisza', df)
 barplot(model5.tisza.r2,xlab='folds',ylab='R-squared')
 mean(model5.tisza.r2)
 
@@ -926,40 +956,6 @@ nearest_mp <- st_nearest_feature(point.id, labeled.munis)
 nearest_mp <- labeled.munis[nearest_mp, c('name', 'id')]
 colnames(nearest_mp) <- c('nearest_mp.name', 'nearest_mp.id','nearest_mp.point')
 st_geometry(nearest_mp) <- "nearest_mp.point"
-
-# mp.effect <- cbind(df[,c('id', 'name', 'is_mped', 'geometry', 'point', 'turnout', 'tisza', 'fidesz', 
-# 'bal', 'other', 'invalid')], nearest_mp)
-
-mp.effect <- cbind(df, nearest_mp)
-rownames(mp.effect) <- 1:nrow(mp.effect)
-lookup_pairs <- cbind(mp.effect$name, mp.effect$nearest_mp.name)
-mp.effect$closest.mp <- durationsSymm[lookup_pairs]
-
-ggplot(mp.effect, aes(x=closest.mp, y=tisza)) +
-  geom_point() +
-  geom_smooth(method = "lm", col = "red") # r^2=7%
-
-ggplot(mp.effect, aes(x=log1p(closest.mp), y=tisza)) +
-  geom_point() +
-  geom_smooth(method = "lm", col = "red") # r^2=10%
-
-
-predictors4.tisza <- c(
-  "closest.mp", "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
-  "flats", "lower_elementary", "elementary", "degree",
-   "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'is_dked'
-) # dropped non-significant variables
-formula_str4.tisza <- paste("tisza ~", paste(predictors4.tisza, collapse = " + "))
-model4.tisza <- lm(as.formula(formula_str4.tisza), data = mp.effect)
-summary(model4.tisza)
-car::vif(model4.tisza)
-bptest(model4.tisza, studentize = TRUE)
-coeftest(model4.tisza, vcov = hccm(model4.tisza))
-model4.tisza.r2 <- cv.r2(formula_str4.tisza, 'tisza', mp.effect)
-barplot(model4.tisza.r2,xlab='folds',ylab='R-squared')
-mean(model4.tisza.r2)
-
-BIC(model4.tisza, model2.tisza) # model 4 better!
 
 # ==== 9. OLS regression with time ====
 

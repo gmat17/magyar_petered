@@ -800,22 +800,12 @@ ggplot(ic.bal, aes(x=name, y=BIC)) +
 # winner: model3 but model2 is close to it, but be careful with overfitting
 
 # ==== 8. Analysis of the distance to the closest campaign city ====
-# ---- 8.0. Preparation ----
+# ---- 8.1.0. TISZA preparation ----
 mped.cities <- df[df$is_mped==T,'name']
 mped <- durationsSymm[,mped.cities]
 c(nrow(mped), ncol(mped)) # 3153x184 matrix
   # all muni in rows
   # only mped rows in columns --> look up for the smallest!
-
-# matrix el van rontva!!! javitas!!!
-View(mped)
-# Kisvarda vmiert 240 percre van sajat magatol
-mped['Kisvárda','Kisvárda']
-mped['Kisvárda','Zirc']
-
-i <- 1398
-which.min(mped[df[i,'name'],])
-rownames(as.matrix(76))
 
 fidesz.cities <- df[df$is_fideszed==T,'name']
 fideszed <- durationsSymm[,fidesz.cities]
@@ -855,7 +845,7 @@ df$tisza.closest.distance <- closest.distances
 df$tisza.closest.result <- closest.tisza
 df$tisza.diff.from.closest <- df$tisza-df$tisza.closest.result
 
-# ---- 8.1. Plots ----
+# ---- 8.1.1. TISZA plots ----
 hist(df$tisza.closest.distance) # need log1p!
 hist(log1p(df[df$tisza.closest.distance,'tisza.closest.distance'])) # outliers at 0
 
@@ -869,39 +859,28 @@ ggplot(df, aes(x=log1p(tisza.closest.distance), y=tisza)) +
   geom_smooth(method = "lm", col = "red") +
   geom_smooth(method = "loess", col = "blue")
 
+df$tisza.closest.log1p <- log1p(df$tisza.closest.distance)
+
+# add a cap to the logged lower outliers (mped cities)
 boxplot(df$tisza.closest.distance)
-boxplot(log1p(df$tisza.closest.distance))
-boxplot(df$closest.log)
-df$closest.log <- log1p(df$tisza.closest.distance)
-
+boxplot(df$tisza.closest.log1p)
 lower.tukey <- quantile(log1p(df$tisza.closest.distance))[2]-(quantile(log1p(df$tisza.closest.distance))[4]-quantile(log1p(df$tisza.closest.distance))[2])*1.5
+df[df$tisza.closest.log1p<lower.tukey,'tisza.closest.log1p'] <- lower.tukey
 
-df[df$closest.log<lower.tukey,'closest.log'] <- lower.tukey
-
-ggplot(df[df$tisza.closest.distance<100,], aes(x=tisza.closest.distance, y=tisza)) +
+ggplot(df, aes(x=tisza.closest.distance, y=tisza)) +
   geom_point() +
   geom_smooth(method = "lm", col = "red") +
   geom_smooth(method = "loess", col = "blue")
 
-ggplot(df[(df$tisza.closest.distance<100)&(df$tisza.closest.distance>0),], aes(x=log1p(tisza.closest.distance), y=tisza)) +
+ggplot(df, aes(x=tisza.closest.log1p, y=tisza)) +
   geom_point() +
   geom_smooth(method = "lm", col = "red") +
   geom_smooth(method = "loess", col = "blue")
+# now lm and loess are close to each other
 
 summary(lm(tisza~tisza.closest.distance, data=df))$r.squared
 summary(lm(tisza~log1p(tisza.closest.distance), data=df))$r.squared
 summary(loess(tisza~log1p(tisza.closest.distance), data=df))
-
-# got the same result as from the previous method
-# good method gives good solutions!
-
-ggplot(df[df$tisza.closest.distance<100,], aes(x=tisza.closest.distance, y=tisza.diff.from.closest)) +
-  geom_point() +
-  geom_smooth(method = "lm", col = "red")
-
-ggplot(df[df$tisza.closest.distance<100,], aes(x=log1p(tisza.closest.distance), y=tisza.diff.from.closest)) +
-  geom_point() +
-  geom_smooth(method = "lm", col = "red")
 
 # miket erdemes modellezni
   # nincs closest.mp, dummy-val

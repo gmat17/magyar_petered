@@ -1,7 +1,7 @@
 setwd("/Users/mac/Downloads/egyetem/TDK/magyar_petered_main/magyar_petered/data")
 
 # ==== 1. Geodata preparation ==== 
-# ==== 1.1. Read-in shapefile of settlements ====
+# ---- 1.1. Read-in shapefile of settlements ----
 library(sf)
 library(leaflet)
 library(stringi)
@@ -27,7 +27,8 @@ hun_shape <- st_read('kozighatarok/admin2.shp')
 hun_shape <- st_make_valid(hun_shape)
 hun_shape <- st_transform(hun_shape, crs = 4326)
 
-# ==== 1.2. Read-in settlements affected by the campaign ====
+print('1.1. is done!')
+# ---- 1.2. Read-in settlements affected by the campaign ----
 library(ggplot2)
 
 campaign <- readxl::read_excel('magyar_petered_telepulesek.xlsx')
@@ -38,7 +39,8 @@ shape_df$is_mped <- shape_df$name %in% campaign$is_magyar_petered
 shape_df$is_fideszed <- shape_df$name %in% campaign$is_fideszed
 shape_df$is_dked <- shape_df$name %in% campaign$is_dked
 
-# plot the result
+print('1.2. is done!')
+# ---- 1.3. Plot the result ----
 ggplot(shape_df) +
   geom_sf(data=hun_shape, fill='white', size=0.3,color='black') +
   geom_sf(aes(fill = is_mped)) +
@@ -55,7 +57,6 @@ ggplot(shape_df) +
 # ggsave(filename=paste0(plot.path, '01_mp_orszagjaras.png'), 
 #   width = 2000, height = 1500, units = "px", dpi = 300)
 
-# ==== 1.3. Plot the result ====
 ggplot(shape_df) +
   geom_sf(data=hun_shape, fill='white', size=0.3,color='black') +
   geom_sf(aes(fill = is_fideszed)) +
@@ -90,7 +91,8 @@ ggplot(shape_df) +
 # ggsave(filename=paste0(plot.path, '03_dk_orszagjaras.png'), 
 # width = 2000, height = 1500, units = "px", dpi = 300)
 
-# ==== 1.4. Add points to the dataframe ====
+print('1.3. is done!')
+# ---- 1.4. Add points to the dataframe ----
 points <- st_read('kozighatarok/place.shp')
 points <- points[,c('NAME','geometry')]
 points <- st_make_valid(points)
@@ -124,7 +126,7 @@ ggplot() +
 # ggsave(filename=paste0(plot.path, '04_telepulesek.png'), 
 # width = 2000, height = 1500, units = "px", dpi = 300)
 
-
+print('1.4. Is done!')
 # ==== 2. KSH data preparation ====
 #  disclaimer
 # Ahogy látható, az ebben a kódban használt táblák egy másik mappában vannak.
@@ -165,6 +167,7 @@ for (i in 1:length(goods)){
   df <- merge(df, mini_df, by.x='id', by.y = 'ELEM_KOD', all.x = TRUE)
 }
 
+print('2.1. is done!')
 # ---- 2.2. Load 3 files from 0_problemas (Timea data) ----
 # In these tables, the interesting thing is the change from 2012 to 2023.
 
@@ -197,6 +200,7 @@ df <- merge(df, routes, by.x='id', by.y='ELEM_KOD')
 df <- merge(df, flats, by.x='id', by.y='ELEM_KOD')
 df <- merge(df, buildings, by.x='id', by.y='ELEM_KOD')
 
+print('2.2. is done!')
 # --- 2.3. Load detailed age and education data from Nepszamlalas 2022 ----
 # A Népszámlálásnál már többet módosítottam a táblán, levágtam a felesleges sorokat, és a …
 # karaktert 0-ra cseréltem. A részletes változtatások a TDK-ban vannak leírva. 
@@ -230,22 +234,27 @@ rel$christian <- rowSums(rel[,c('Katolikus', 'Református', 'Evangélikus', 'Ort
 'Más keresztény felekezet')])
 df <- merge(df, rel[,c('...1','christian', 'ateist', 'rel_no_ans')], by.x='name', by.y='...1')
 
+# roma
 roma <- load_nepszamlalas('ksh-census2022-nemzetiseg.xlsx')
 colnames(roma) <- c('city','hun', 'roma', 'other_nat', 'roma_no_ans')
 # rowSums(roma[,c('hun', 'roma', 'other_nat', 'no_ans')])
 df <- merge(df, roma, by.x='name',by.y='city')
 
-# Set up column names
+# set up column names
 setwd("/Users/mac/Downloads/egyetem/TDK/magyar_petered_main/magyar_petered/data")
-desc <- readxl::read_excel('ksh_data_concated.xlsx', sheet = 'description')
+desc <- readxl::read_excel('description.xlsx', sheet = 'description')
 desc$description <- stri_trans_nfc(desc$description)
 csvin <- desc[grepl('.csv',desc$description),]
 csvin$description <- substr(csvin$description, 1, nchar(csvin$description) - 4)
 desc[csvin$name==desc$name,]$description <- csvin$description
 
-colnames(df)[10:54] <- desc$name
+colnames(df)[10:54] <- desc$name[1:45]
 df[is.na(df)] <- 0
 
+# write excel table
+# writexl::write_xlsx(df, 'ksh_data_concated.xlsx')
+
+print('2.4. is done!')
 # ---- 2.5. Plot data ----
 # can be found in plot_ksh_data.R
 
@@ -257,7 +266,7 @@ munis_df <- df[1:10,'id']
 
 munis_df <- data.frame(id = df[1:10,'id'])
 
-for (i in colnames(df)[8:52]) {
+for (i in colnames(df)[10:61]) {
   top10 <- head(df[order(df[[i]], decreasing = TRUE), "name"], 10)
   munis_df[[i]] <- top10
 }
@@ -297,43 +306,45 @@ ggplot(munis) +
 # ggsave(filename=paste0(plot.path, '05_top_telepulesek.png'), 
 #   width = 2000, height = 1500, units = "px", dpi = 300)
 
+print('3. is done!')
 # ==== 4. PCA and correlations ====
 # apply logs
-test <- df
 for (i in desc$name){
   if (desc[desc$name==i,'using_log1p']==1) {df[[i]] <- log1p(df[[i]])}
 }
-
 # ---- 4.1. Correlation matrix ----
 library(corrplot)
 
-cor.mat <- cor(as.data.frame(df[,10:62]))
+cor.mat <- cor(as.data.frame(df[,10:61]))
 # png(filename = paste0(plot.path, '06_corr_matrix.png'), width = 1200, height = 1200, res = 120)
-corrplot(cor(as.data.frame(df[,10:62])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
+corrplot(cor(as.data.frame(df[,10:61])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
 # dev.off()
 
 # only medium and strong correlation
 cor.mat[abs(cor.mat)<0.3] <- 0
 corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
-(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 159
+(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 194
 # easy to interpret the similar values
   # upper-left corner: 
     # flat_sewage, szja, flat_area, sewage_quantity, collected_waste, gas_consumption
   # lower part:
     # habitans_per_flats, childs_per_nursery_school, cars
-  # pairs:
 
 # only medium-strong correlation
 cor.mat[abs(cor.mat)<0.5] <- 0
 corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
-(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 40
+(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 46
 
 # only strongly correlation
 cor.mat[abs(cor.mat)<0.7] <- 0
 corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
-(sum(abs(cor.mat)>0)-nrow(cor.mat))/2
-  # 7 pairs: big_flats-flat_area, prof_per_stud-childs_per_nursery_school
-  # 3 other with nepszamlalas data
+(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 6
+  # 6 pairs: big_flats-flat_area, prof_per_stud-childs_per_nursery_school
+  # 4 other with nepszamlalas data
+    # elementary-szja
+    # elementary-leaving_exam
+    # elementary-uni
+    # hun-roma
 
 # ---- 4.2. PCA analysis ----
 pca.analysis <- prcomp(df[,10:54], center=TRUE, scale.=TRUE)
@@ -392,6 +403,7 @@ summary(nat.pca.analysis)
 df$nat.pca <- nat.pca.analysis$x[,1]
 round(cor(df[,c('hun', 'roma')]),4)
 
+print('4. is done!')
 # ==== 5. Spatial autocorrelation of TISZA support ====
 # ---- 5.1. Load NVI data -----
 setwd("~/Downloads/egyetem/TDK/magyar_petered_main/ksh_data")
@@ -428,9 +440,10 @@ nvi$invalid <- nvi$invalid/nvi$voters
 
 nvi <- nvi[,c('name','vox_pop','turnout','tisza','fidesz','bal','other','invalid'),]
 df <- merge(df, nvi, by.x='name', by.y='name', all.x=TRUE)
-# writexl::write_xlsx(nvi,'magyar_petered/data/nvi.xlsx')
+# writexl::write_xlsx(nvi,'~/Downloads/egyetem/TDK/magyar_petered_main/magyar_petered/data/nvi.xlsx')
 
-# ==== 6. Calculate Moran's I ====
+print('5.1. is done!')
+# ---- 5.2. Calculate Moran's I ----
 locs <- readRDS('locs.rds')
 durations <- fread('osrmdurations.csv')
 durations <- as.matrix(durations)
@@ -485,13 +498,13 @@ ggplot(moran.i.values, aes(x = range.min)) +
     ), name = "Party") +
   theme_minimal() +
   labs(
-    title = "Spatial autocorrelation of parties' support",
-    x = 'Distance range (km)', y = "Moran's I")
-# ggsave(filename=paste0(plot.path, '07_spatial_autocorr.png'), 
-  #  width = 2000, height = 1500, units = "px", dpi = 300)
+    title = "A vizsgált pártok területi autokorrelációja a távolság változásával",
+    x = 'Távolság (perc)', y = "Moran's I")
+# ggsave(filename=paste0(plot.path, '07_spatial_autocorr.png'),  width = 2000, height = 1500, units = "px", dpi = 300)
 
-# ==== 7. OLS regression without time and distance ====
-# ---- 7.0. Preparing for modelling ----
+print('5.2. is done!')
+# ==== 6. OLS regression without time and distance ====
+# ---- 6.0. Preparing for modelling ----
 library(boot)
 
 # avoid absolute 0 for modelling
@@ -515,7 +528,7 @@ cv.r2 <- function(formula_str, target, data=df){
   return(RSqr)
 }
 
-# ---- 7.1. TISZA regression ----
+# ---- 6.1. TISZA regression ----
 library(zoo)
 library(car)
 library(lmtest)
@@ -628,7 +641,7 @@ hist(boot.results.tisza, layout = c(2, 3))
 plot(model2.tisza, which=1)
 cv.r2(formula_str2.tisza, 'tisza')
 
-# ---- 7.2. FIDESZ regression ----
+# ---- 6.2. FIDESZ regression ----
 predictors1.fidesz <- c(
   "is_fideszed", "animal_unity", "criminals", "gas_consumption",
   "electricity_consumption", "cultural_programs", "newborns",
@@ -694,11 +707,11 @@ corrplot(cor(as.data.frame(df[,predictors2.fidesz])), method='square', type='upp
 set.seed(17)
 boot.results.fidesz <- Boot(model2.fidesz, R = 1000, ncores=4)
 summary(boot.results.fidesz)
-hist(boot.results.fidesz, layout = c(2, 3))
+# hist(boot.results.fidesz, layout = c(2, 3))
 plot(model2.fidesz, which=1)
 cv.r2(formula_str2.fidesz, 'fidesz')
 
-# ---- 7.3. DK regression ----
+# ---- 6.3. DK regression ----
 predictors0.bal <- c(
   "is_dked", "animal_unity", "criminals", "gas_consumption",
   "electricity_consumption", "cultural_programs", "newborns",
@@ -716,7 +729,7 @@ model0.bal <- lm(as.formula(formula_str0.bal), data = df)
 summary(model0.bal)
 car::vif(model0.bal)
 bptest(model0.bal, studentize = TRUE) # heterosked --> HC
- # coeftest(model0.bal, vcov = hccm(model0.bal)) # fails because of uni.pca
+# coeftest(model0.bal, vcov = hccm(model0.bal)) # fails because of uni.pca
 model0.bal.r2 <- cv.r2(formula_str0.bal, 'fidesz')
 barplot(model0.bal.r2,xlab='folds',ylab='R-squared')
 mean(model0.bal.r2)
@@ -799,21 +812,14 @@ ggplot(ic.bal, aes(x=name, y=BIC)) +
 
 # winner: model3 but model2 is close to it, but be careful with overfitting
 
-# ==== 8. Analysis of the distance to the closest campaign city ====
-# ---- 8.1.0. TISZA preparation ----
+print('6. is done!')
+# ==== 7. Analysis of the distance to the closest campaign city ====
+# ---- 7.1.0. TISZA preparation ----
 mped.cities <- df[df$is_mped==T,'name']
 mped <- durationsSymm[,mped.cities]
 c(nrow(mped), ncol(mped)) # 3153x184 matrix
   # all muni in rows
   # only mped rows in columns --> look up for the smallest!
-
-fidesz.cities <- df[df$is_fideszed==T,'name']
-fideszed <- durationsSymm[,fidesz.cities]
-c(nrow(fideszed), ncol(fideszed))
-
-dk.cities <- df[df$is_dked==T,'name']
-dked <- durationsSymm[,dk.cities]
-c(nrow(dked), ncol(dked))
 
 # add tisza to variables name with llm
 # iterate throught the matrix to get the value of the closest city
@@ -845,7 +851,7 @@ df$tisza.closest.distance <- closest.distances
 df$tisza.closest.result <- closest.tisza
 df$tisza.diff.from.closest <- df$tisza-df$tisza.closest.result
 
-# ---- 8.1.1. TISZA plots ----
+# ---- 7.1.1. TISZA plots ----
 hist(df$tisza.closest.distance) # need log1p!
 hist(log1p(df[df$tisza.closest.distance,'tisza.closest.distance'])) # outliers at 0
 
@@ -882,21 +888,156 @@ summary(lm(tisza~tisza.closest.distance, data=df))$r.squared
 summary(lm(tisza~log1p(tisza.closest.distance), data=df))$r.squared
 summary(loess(tisza~log1p(tisza.closest.distance), data=df))
 
+# ---- 7.2.0. Fidesz preparation ----
+fidesz.cities <- df[df$is_fideszed==T,'name']
+fideszed <- durationsSymm[,fidesz.cities]
+c(nrow(fideszed), ncol(fideszed))
+
+# iterate throught the matrix to get the value of the closest city
+fidesz.closest.cities <- c()
+fidesz.closest.id <- c()
+fidesz.closest.distances <- c()
+closest.fidesz <- c()
+
+for(i in 1:nrow(df)){
+  # save the current city name
+  current.city <- df[i,'name']
+
+  # save the closest city name
+  closest.city <- which.min(fideszed[df[i,'name'],])
+  closest.city <- rownames(as.matrix(closest.city))
+  fidesz.closest.cities <- c(fidesz.closest.cities, closest.city)
+
+  # save the result of the closest city
+  current.result <- df[df$name==closest.city,'fidesz']
+  closest.fidesz <- c(closest.fidesz, current.result)
+
+  # save the distance to the closest mp city
+  closest.distance <- fideszed[current.city,closest.city]
+  fidesz.closest.distances <- c(fidesz.closest.distances, closest.distance)
+}
+
+df$fidesz.closest.city <- fidesz.closest.cities
+df$fidesz.closest.distance <- fidesz.closest.distances
+df$fidesz.closest.result <- closest.fidesz
+df$fidesz.diff.from.closest <- df$fidesz-df$fidesz.closest.result
+
+# ---- 7.2.1. Fidesz plots ----
+hist(df$fidesz.closest.distance) # need log1p!
+hist(log1p(df$fidesz.closest.distance)) # outliers at 0
+
+ggplot(df, aes(x=fidesz.closest.distance, y=fidesz)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
+
+ggplot(df, aes(x=log1p(fidesz.closest.distance), y=fidesz)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
+
+df$fidesz.closest.log1p <- log1p(df$fidesz.closest.distance)
+
+# add a cap to the logged lower outliers (mped cities)
+boxplot(df$fidesz.closest.distance)
+boxplot(df$fidesz.closest.log1p)
+lower.tukey <- quantile(df$fidesz.closest.log1p)[2]-1.5*(quantile(df$fidesz.closest.log1p)[4]-quantile(df$fidesz.closest.log1p)[2])
+df[df$fidesz.closest.log1p<lower.tukey,'fidesz.closest.log1p'] <- lower.tukey
+
+ggplot(df, aes(x=fidesz.closest.distance, y=fidesz)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
+
+ggplot(df, aes(x=fidesz.closest.log1p, y=fidesz)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
+# need log1p? --> ask laci!!!
+
+# ---- 7.3.0 DK preparation ----
+dk.cities <- df[df$is_dked==T,'name']
+dked <- durationsSymm[,dk.cities]
+c(nrow(dked), ncol(dked))
+
+# iterate throught the matrix to get the value of the closest city
+dk.closest.cities <- c()
+dk.closest.id <- c()
+dk.closest.distances <- c()
+closest.dk <- c()
+
+for(i in 1:nrow(df)){
+  # save the current city name
+  current.city <- df[i,'name']
+
+  # save the closest city name
+  closest.city <- which.min(dked[df[i,'name'],])
+  closest.city <- rownames(as.matrix(closest.city))
+  dk.closest.cities <- c(dk.closest.cities, closest.city)
+
+  # save the result of the closest city
+  current.result <- df[df$name==closest.city,'bal']
+  closest.dk <- c(closest.dk, current.result)
+
+  # save the distance to the closest mp city
+  closest.distance <- dked[current.city,closest.city]
+  dk.closest.distances <- c(dk.closest.distances, closest.distance)
+}
+
+df$dk.closest.city <- dk.closest.cities
+df$dk.closest.distance <- dk.closest.distances
+df$dk.closest.result <- closest.dk
+df$dk.diff.from.closest <- df$bal-df$dk.closest.result
+
+# ---- 7.3.1. DK plots ----
+hist(df$dk.closest.distance)
+hist(log1p(df$dk.closest.distance)) # outliers at 0
+
+ggplot(df, aes(x=dk.closest.distance, y=bal)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
+
+ggplot(df, aes(x=log1p(dk.closest.distance), y=bal)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
+
+df$dk.closest.log1p <- log1p(df$dk.closest.distance)
+
+# add a cap to the logged lower outliers (mped cities)
+boxplot(df$dk.closest.distance)
+boxplot(df$dk.closest.log1p)
+lower.tukey <- quantile(df$dk.closest.log1p)[2]-1.5*(quantile(df$dk.closest.log1p)[4]-quantile(df$dk.closest.log1p)[2])
+df[df$dk.closest.log1p<lower.tukey,'dk.closest.log1p'] <- lower.tukey
+
+ggplot(df, aes(x=dk.closest.distance, y=bal)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
+
+ggplot(df, aes(x=dk.closest.log1p, y=bal)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  geom_smooth(method = "loess", col = "blue")
+# drop log1p
+
 # miket erdemes modellezni
-  # nincs closest.mp, dummy-val
-  # closest.mp linearisan
-  # closest.mp logolva
-  # closest.mp negyzetesen
-  # closest.mp logolva es log negyzetesen
+  # nincs closest.mp, dummy-val --> model2
+  # closest.mp linearisan --> model4
+  # closest.mp logolva --> model5
+  # closest.mp negyzetesen --> model6
+  # closest.mp logolva es log negyzetesen --> model7
   # osszehasonlitas: IC es cv.r2
 
-# ==== 9. OLS regression with distance ====
-# ---- 9. TISZA regression -----
+# ==== 8. OLS regression with distance ====
+# ---- 8.1. TISZA regression -----
+# closest.distance linearly
 predictors4.tisza <- c(
-  "tisza.closest.distance", "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
-  "flats", "lower_elementary", "elementary", "degree",
-   "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'is_dked'
-) # dropped non-significant variables
+  "tisza.closest.distance", "electricity_consumption", "cultural_programs", "estate_area", 
+  "flats", "lower_elementary", "elementary", "degree", "christian", "ateist",
+   "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'nat.pca', 'is_dked'
+) # replace is_mped with tisza.closest.distance
 formula_str4.tisza <- paste("tisza ~", paste(predictors4.tisza, collapse = " + "))
 model4.tisza <- lm(as.formula(formula_str4.tisza), data = df)
 summary(model4.tisza)
@@ -907,12 +1048,11 @@ model4.tisza.r2 <- cv.r2(formula_str4.tisza, 'tisza', df)
 barplot(model4.tisza.r2,xlab='folds',ylab='R-squared')
 mean(model4.tisza.r2)
 
-BIC(model4.tisza, model2.tisza)
-
+# closest distance logged
 predictors5.tisza <- c(
-  "log1p(tisza.closest.distance)", "electricity_consumption", "cultural_programs", "estate_area", "crop_field", 
-  "flats", "lower_elementary", "elementary", "degree",
-   "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'is_dked'
+  "tisza.closest.log1p", "electricity_consumption", "cultural_programs", "estate_area", 
+  "flats", "lower_elementary", "elementary", "degree", "christian", "ateist",
+   "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age40", 'nat.pca', 'is_dked'
 ) # dropped non-significant variables
 formula_str5.tisza <- paste("tisza ~", paste(predictors5.tisza, collapse = " + "))
 model5.tisza <- lm(as.formula(formula_str5.tisza), data = df)
@@ -924,17 +1064,203 @@ model5.tisza.r2 <- cv.r2(formula_str5.tisza, 'tisza', df)
 barplot(model5.tisza.r2,xlab='folds',ylab='R-squared')
 mean(model5.tisza.r2)
 
-BIC(model5.tisza, model2.tisza)
+# closest distance squared
+predictors6.tisza <- c(
+  "tisza.closest.distance", "I(tisza.closest.distance^2)", "electricity_consumption", 
+  "cultural_programs", "estate_area",  "flats", "lower_elementary", "elementary", 
+  "degree", "christian", "ateist", "stud.pca", "szja.pca", "waste.pca", "sewage.pca", 
+  "age40", 'nat.pca', 'is_dked'
+) # dropped non-significant variables
+formula_str6.tisza <- paste("tisza ~", paste(predictors6.tisza, collapse = " + "))
+model6.tisza <- lm(as.formula(formula_str6.tisza), data = df)
+summary(model6.tisza)
+car::vif(model6.tisza)
+bptest(model6.tisza, studentize = TRUE)
+coeftest(model6.tisza, vcov = hccm(model6.tisza)) 
+model6.tisza.r2 <- cv.r2(formula_str6.tisza, 'tisza', df)
+barplot(model6.tisza.r2,xlab='folds',ylab='R-squared')
+mean(model6.tisza.r2)
+# I(tisza.closest.distance^2) insignif by a lot (p-value=0.57)
 
-# todelete later ----
+# closest distance with log and log squared
+predictors7.tisza <- c(
+  "tisza.closest.log1p", "I(tisza.closest.log1p^2)", "electricity_consumption", 
+  "cultural_programs", "estate_area",  "flats", "lower_elementary", "elementary", 
+  "degree", "christian", "ateist", "stud.pca", "szja.pca", "waste.pca", "sewage.pca", 
+  "age40", 'nat.pca', 'is_dked'
+) # dropped non-significant variables
+formula_str7.tisza <- paste("tisza ~", paste(predictors7.tisza, collapse = " + "))
+model7.tisza <- lm(as.formula(formula_str7.tisza), data = df)
+summary(model7.tisza)
+car::vif(model7.tisza)
+bptest(model7.tisza, studentize = TRUE)
+coeftest(model7.tisza, vcov = hccm(model7.tisza)) 
+model7.tisza.r2 <- cv.r2(formula_str7.tisza, 'tisza', df)
+barplot(model7.tisza.r2,xlab='folds',ylab='R-squared')
+mean(model7.tisza.r2)
+# log1ped distance insignif with squared and without it as well
 
-# with st_nearest_feature
-labeled.munis <- st_as_sf(df[df$is_mped==T,c('id', 'name', 'point')], crs=4326)
-point.id <- st_as_sf(df[,c('id','name','point')], crs=4326)
-nearest_mp <- st_nearest_feature(point.id, labeled.munis)
-nearest_mp <- labeled.munis[nearest_mp, c('name', 'id')]
-colnames(nearest_mp) <- c('nearest_mp.name', 'nearest_mp.id','nearest_mp.point')
-st_geometry(nearest_mp) <- "nearest_mp.point"
+ic.tisza2 <- data.frame(
+  name=c('model2.tisza', 'model4.tisza', 'model5.tisza', 'model6.tisza', 'model7.tisza'),
+  AIC=AIC(model2.tisza, model4.tisza, model5.tisza, model6.tisza, model7.tisza)$AIC,
+  BIC=BIC(model2.tisza, model4.tisza, model5.tisza, model6.tisza, model7.tisza)$BIC,
+  cv.r2=c(mean(model2.tisza.r2), mean(model4.tisza.r2), mean(model5.tisza.r2), 
+mean(model6.tisza.r2), mean(model7.tisza.r2))
+)
 
-# ==== 9. OLS regression with time ====
+ggplot(ic.tisza2, aes(x=name, y=AIC)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.tisza2$AIC), max(ic.tisza2$AIC)*0.9999)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'AIC Modelleredmenyek', subtitle = 'legkisebb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
 
+ggplot(ic.tisza2, aes(x=name, y=BIC)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.tisza2$BIC), max(ic.tisza2$BIC)*0.9999)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'BIC Modelleredmenyek', subtitle = 'legkisebb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
+
+ggplot(ic.tisza2, aes(x=name, y=cv.r2)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.tisza2$cv.r2), max(ic.tisza2$cv.r2)*0.9999)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'Keresztvalidált R^2 modelleredmények', subtitle = 'legnagyobb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
+# model4 is the winner!
+
+# ---- 8.2. Fidesz regression ----
+# closest.distance linearly
+predictors3.fidesz <- c(
+  "fidesz.closest.distance", "gas_consumption",
+  "electricity_consumption", "net_subs", "pensioneers", 
+  "crop_field", "habitans_per_flats", "lower_elementary", "elementary", "degree", "christian",
+  "ateist", "rel_no_ans", "stud.pca", "szja.pca", "sewage.pca", "nat.pca", "is_dked"
+) # replace is_mped with fidesz.closest.distance
+formula_str3.fidesz <- paste("fidesz ~", paste(predictors3.fidesz, collapse = " + "))
+model3.fidesz <- lm(as.formula(formula_str3.fidesz), data = df)
+summary(model3.fidesz)
+car::vif(model3.fidesz)
+bptest(model3.fidesz, studentize = TRUE)
+coeftest(model3.fidesz, vcov = hccm(model3.fidesz))
+model3.fidesz.r2 <- cv.r2(formula_str3.fidesz, 'fidesz', df)
+barplot(model3.fidesz.r2,xlab='folds',ylab='R-squared')
+mean(model3.fidesz.r2)
+
+# closest distance logged
+predictors4.fidesz <- c(
+  "fidesz.closest.log1p", "gas_consumption",
+  "electricity_consumption", "net_subs", "pensioneers", 
+  "crop_field", "habitans_per_flats", "lower_elementary", "elementary", "degree", "christian",
+  "ateist", "rel_no_ans", "stud.pca", "szja.pca", "sewage.pca", "nat.pca", "is_dked"
+) # dropped non-significant variables
+formula_str4.fidesz <- paste("fidesz ~", paste(predictors4.fidesz, collapse = " + "))
+model4.fidesz <- lm(as.formula(formula_str4.fidesz), data = df)
+summary(model4.fidesz)
+car::vif(model4.fidesz)
+bptest(model4.fidesz, studentize = TRUE)
+coeftest(model4.fidesz, vcov = hccm(model4.fidesz))
+model4.fidesz.r2 <- cv.r2(formula_str4.fidesz, 'fidesz', df)
+barplot(model4.fidesz.r2,xlab='folds',ylab='R-squared')
+mean(model4.fidesz.r2)
+
+ic.fidesz2 <- data.frame(
+  name=c('model2.fidesz', 'model3.fidesz', 'model4.fidesz'),
+  AIC=AIC(model2.fidesz, model3.fidesz, model4.fidesz)$AIC,
+  BIC=BIC(model2.fidesz, model3.fidesz, model4.fidesz)$BIC,
+  cv.r2=c(mean(model2.fidesz.r2), mean(model3.fidesz.r2), mean(model4.fidesz.r2))
+)
+
+ggplot(ic.fidesz2, aes(x=name, y=AIC)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.fidesz2$AIC), max(ic.fidesz2$AIC)*0.9999)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'AIC Modelleredmenyek', subtitle = 'legkisebb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
+
+ggplot(ic.fidesz2, aes(x=name, y=BIC)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.fidesz2$BIC), max(ic.fidesz2$BIC)*0.9999)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'BIC Modelleredmenyek', subtitle = 'legkisebb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
+
+ggplot(ic.fidesz2, aes(x=name, y=cv.r2)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.fidesz2$cv.r2), max(ic.fidesz2$cv.r2)*0.9999)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'keresztvalidalt R^2 Modelleredmenyek', subtitle = 'legnagyobb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
+# model3 is the winner!
+
+# ---- 8.3. DK regression ----
+# closest.distance linearly
+predictors4.bal <- c(
+  "dk.closest.distance", "animal_unity",
+  "pensioneers", "crop_field", "habitans_per_flats", "ateist", "rel_no_ans", "stud.pca"
+  , "stud.pca", "sewage.pca", "age.pca1", "age40", "age.pca2", "is_mped"
+) # replace is_mped with fidesz.closest.distance
+formula_str4.bal <- paste("fidesz ~", paste(predictors4.bal, collapse = " + "))
+model4.bal <- lm(as.formula(formula_str4.bal), data = df)
+summary(model4.bal)
+car::vif(model4.bal)
+bptest(model4.bal, studentize = TRUE)
+coeftest(model4.bal, vcov = hccm(model4.bal))
+model4.bal.r2 <- cv.r2(formula_str4.bal, 'fidesz', df)
+barplot(model4.bal.r2,xlab='folds',ylab='R-squared')
+mean(model4.bal.r2)
+
+# closest distance logged
+predictors5.bal <- c(
+  "dk.closest.log1p",  "animal_unity",
+  "pensioneers", "crop_field", "habitans_per_flats", "ateist", "rel_no_ans", "stud.pca"
+  , "stud.pca", "sewage.pca", "age.pca1", "age40", "age.pca2", "is_mped"
+) # dropped non-significant variables
+formula_str5.bal <- paste("fidesz ~", paste(predictors5.bal, collapse = " + "))
+model5.bal <- lm(as.formula(formula_str5.bal), data = df)
+summary(model5.bal)
+car::vif(model5.bal)
+bptest(model5.bal, studentize = TRUE)
+coeftest(model5.bal, vcov = hccm(model5.bal))
+model5.bal.r2 <- cv.r2(formula_str5.bal, 'fidesz', df)
+barplot(model5.bal.r2,xlab='folds',ylab='R-squared')
+mean(model5.bal.r2)
+
+ic.bal2 <- data.frame(
+  name=c('model2.bal', 'model4.bal', 'model5.bal'),
+  AIC=AIC(model2.bal, model4.bal, model5.bal)$AIC,
+  BIC=BIC(model2.bal, model4.bal, model5.bal)$BIC,
+  cv.r2=c(mean(model2.bal.r2), mean(model4.bal.r2), mean(model5.bal.r2))
+)
+
+ggplot(ic.bal2, aes(x=name, y=AIC)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.bal2$AIC), max(ic.bal2$AIC)*0.9999)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'AIC Modelleredmenyek', subtitle = 'legkisebb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
+
+ggplot(ic.bal2, aes(x=name, y=BIC)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.bal2$BIC), max(ic.bal2$BIC)*0.9999)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'BIC Modelleredmenyek', subtitle = 'legkisebb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
+
+ggplot(ic.bal2, aes(x=name, y=cv.r2)) +
+  geom_col() + coord_cartesian(ylim = c(min(ic.bal2$cv.r2), max(ic.bal2$cv.r2)*0.9999)) +
+  theme_minimal() +
+  theme(legend.position='bottom',) +
+  labs(title = 'keresztvalidalt R^2 Modelleredmenyek', subtitle = 'legnagyobb a legjobb') +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+  plot.subtitle = element_text(hjust = 0.5))
+# model5 is the winner! --> need to continue 

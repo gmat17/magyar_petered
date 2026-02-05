@@ -18,7 +18,6 @@ shape_df <- st_make_valid(shape_df)
 shape_df <- st_transform(shape_df, crs = 4326)
 ksh <- merge(ksh, shape_df[,c('NAME', 'geometry')], by.x='name', by.y='NAME')
 ksh <- st_as_sf(ksh)
-ksh$crop_field_per_pop <- (ksh$crop_field*1e6)/st_area(ksh$geometry)
 
 # load hun shapefile
 # load hungary's shape
@@ -27,7 +26,7 @@ hun_shape <- st_make_valid(hun_shape)
 hun_shape <- st_transform(hun_shape, crs = 4326)
 
 # descriptions
-desc <- readxl::read_excel('ksh_data_concated.xlsx', sheet = 'description')
+desc <- readxl::read_excel('description.xlsx', sheet = 'description')
 desc$description <- stri_trans_nfc(desc$description)
 csvin <- desc[grepl('.csv',desc$description),]
 csvin$description <- substr(csvin$description, 1, nchar(csvin$description) - 4)
@@ -37,6 +36,7 @@ desc[csvin$name==desc$name,]$description <- csvin$description
 library(ggplot2)
 library(RColorBrewer)
 library(tidyr)
+
 # about all numeric variables
 per_cols <- c('big_flats', 'flat_sewage', 'pensioneers')
 not_out_col <- c('flat_area', 'prof_per_stud', 'deaths', 'marriages', 'migration_diff', 
@@ -344,6 +344,8 @@ get_boxplot(ages)
 # edu
 edus <- c('lower_elementary', 'elementary', 'degree', 'leaving_exam', 'uni')
 get_boxplot(edus)
+
+df[,edus]
 
 # population
 get_hist('pop')

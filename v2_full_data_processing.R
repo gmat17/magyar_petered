@@ -1233,6 +1233,8 @@ model5.bal.r2 <- cv.r2(formula_str5.bal, 'fidesz', df)
 barplot(model5.bal.r2,xlab='folds',ylab='R-squared')
 mean(model5.bal.r2)
 
+
+
 ic.bal2 <- data.frame(
   name=c('model2.bal', 'model4.bal', 'model5.bal'),
   AIC=AIC(model2.bal, model4.bal, model5.bal)$AIC,
@@ -1263,4 +1265,4 @@ ggplot(ic.bal2, aes(x=name, y=cv.r2)) +
   labs(title = 'keresztvalidalt R^2 Modelleredmenyek', subtitle = 'legnagyobb a legjobb') +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
   plot.subtitle = element_text(hjust = 0.5))
-# model5 is the winner! --> need to continue 
+# model5 is the winner!

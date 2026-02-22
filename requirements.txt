@@ -1,9 +1,0 @@
-beautifulsoup4
-requests
-tqdm
-pandas
-geopy.geocoders
-geopandas
-time
-shapely.geometry
-matplotlib.colors

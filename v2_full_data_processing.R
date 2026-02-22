@@ -1,7 +1,7 @@
 setwd("/Users/mac/Downloads/egyetem/TDK/magyar_petered_main/magyar_petered/data")
 
 # ==== 1. Geodata preparation ==== 
-# ---- 1.1. Read-in shapefile of settlements ----
+# ---- 1.1. Readama-in shapefile of settlements ----
 library(sf)
 library(leaflet)
 library(stringi)
@@ -14,7 +14,7 @@ shape_df <- st_make_valid(shape_df)
 shape_df <- st_transform(shape_df, crs = 4326)
 
 duplicates <- data.frame(table(shape_df$name)[table(shape_df$name)>1])
-  # some settlements are separated from each other
+# some settlements are separated from each other
 shape_df <- shape_df %>% 
   select(name, geometry) %>%
   group_by(name) %>%
@@ -248,7 +248,7 @@ csvin <- desc[grepl('.csv',desc$description),]
 csvin$description <- substr(csvin$description, 1, nchar(csvin$description) - 4)
 desc[csvin$name==desc$name,]$description <- csvin$description
 
-colnames(df)[10:54] <- desc$name[1:45]
+colnames(df)[10:55] <- desc$name[1:46]
 df[is.na(df)] <- 0
 
 # write excel table
@@ -266,7 +266,7 @@ munis_df <- df[1:10,'id']
 
 munis_df <- data.frame(id = df[1:10,'id'])
 
-for (i in colnames(df)[10:61]) {
+for (i in colnames(df)[10:62]) {
   top10 <- head(df[order(df[[i]], decreasing = TRUE), "name"], 10)
   munis_df[[i]] <- top10
 }
@@ -315,16 +315,15 @@ for (i in desc$name){
 # ---- 4.1. Correlation matrix ----
 library(corrplot)
 
-cor.mat <- cor(as.data.frame(df[,10:61]))
+cor.mat <- cor(as.data.frame(df[,10:62]))
 # png(filename = paste0(plot.path, '06_corr_matrix.png'), width = 1200, height = 1200, res = 120)
-corrplot(cor(as.data.frame(df[,10:61])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
+corrplot(cor(as.data.frame(df[,10:62])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
 # dev.off()
 
 # only medium and strong correlation
 cor.mat[abs(cor.mat)<0.3] <- 0
 corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
-(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 194
-# easy to interpret the similar values
+(sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 202
   # upper-left corner: 
     # flat_sewage, szja, flat_area, sewage_quantity, collected_waste, gas_consumption
   # lower part:
@@ -335,7 +334,7 @@ cor.mat[abs(cor.mat)<0.5] <- 0
 corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
 (sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 46
 
-# only strongly correlation
+# only strong correlation
 cor.mat[abs(cor.mat)<0.7] <- 0
 corrplot(cor.mat, method='square', type='upper', diag=FALSE, tl.cex = 0.6)
 (sum(abs(cor.mat)>0)-nrow(cor.mat))/2 # 6
@@ -534,14 +533,14 @@ library(car)
 library(lmtest)
 
 predictors0.tisza <- c(
-  "is_mped", "animal_unity", "criminals", "gas_consumption",
+  "is_mped", "animal_unity", "criminals", "doctor", "gas_consumption",
   "electricity_consumption", "cultural_programs", "newborns",
   "deaths", "marriages", "net_subs", "small_stores", "estate_area",
   "pensioneers", "migration_diff", "crop_field", "habitans_per_flats",
   "fertility_rate", "len_routes_diff", "flats", "building_permissions", "age90", 
   "lower_elementary", "elementary", "degree", "christian", "ateist", "rel_no_ans",
   "roma_no_ans", "flat.pca", "stud.pca", "szja.pca", "waste.pca", "sewage.pca", "age.pca1", 
-  "age.pca1", "age30", "age40","age50", "uni.pca", 'nat.pca',"is_fideszed", "is_dked"
+  "age.pca1", "age30", "age40","age50", "uni.pca", 'nat.pca',"is_fideszed", "is_dked", "turnout"
 )
 
 formula_str0.tisza <- paste("tisza ~", paste(predictors0.tisza, collapse = " + "))
@@ -1232,8 +1231,6 @@ coeftest(model5.bal, vcov = hccm(model5.bal))
 model5.bal.r2 <- cv.r2(formula_str5.bal, 'fidesz', df)
 barplot(model5.bal.r2,xlab='folds',ylab='R-squared')
 mean(model5.bal.r2)
-
-
 
 ic.bal2 <- data.frame(
   name=c('model2.bal', 'model4.bal', 'model5.bal'),

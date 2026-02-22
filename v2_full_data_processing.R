@@ -553,6 +553,8 @@ model0.tisza.r2 <- cv.r2(formula_str0.tisza, 'tisza')
 barplot(model0.tisza.r2,xlab='folds',ylab='R-squared')
 mean(model0.tisza.r2)
 
+# doctor and turnout added until this point
+
 predictors1.tisza <- c(
   "is_mped", "animal_unity", "criminals", "gas_consumption",
   "electricity_consumption", "cultural_programs", "newborns",

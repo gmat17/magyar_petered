@@ -5,6 +5,7 @@ Sys.setlocale("LC_CTYPE", "UTF-8")
 library(sf)
 library(leaflet)
 library(stringi)
+library(patchwork)
 
 # load ksh data
 ksh <- readxl::read_excel('ksh_data_concated.xlsx')
@@ -45,7 +46,7 @@ not_out_col <- c('flat_area', 'prof_per_stud', 'deaths', 'marriages', 'migration
 some_out_col <- c('collected_waste', 'gas_consumption', 'sewage_quantity', 'waste_collection'
                   , 'estate_area', 'net_subs', 'len_routes_diff')
 great_out_col <- c('animal_unity','businesses','szja')
-miaf <- c('criminals','cultural_programs', 'electricity_consumption', 'cars', 'crop_field')
+out_col <- c('criminals','cultural_programs', 'electricity_consumption', 'cars', 'crop_field')
 
 # function for the plot
 get_boxplot <- function(x){
@@ -64,19 +65,40 @@ get_boxplot <- function(x){
     geom_boxplot() +
     stat_summary(fun = mean, geom = "crossbar", , color = "red", width = 0.75, size=0.25) +
     theme_minimal() +
-    labs(title = 'Egyes változók eloszlása és átlaga', 
-         subtitle = 'Átlag: piros vonal, Medián: fekete vonal') +
+    #labs(title = 'Egyes változók eloszlása és átlaga', 
+    #     subtitle = 'Átlag: piros vonal, Medián: fekete vonal') +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
           plot.subtitle = element_text(hjust = 0.5, face = 'italic', size=10),
           axis.text.x = element_text(angle = 45, hjust = 1))
 }
 
+plot.path <- '/Users/mac/Downloads/egyetem/TDK/magyar_petered_main/plots/'
+
 # call the function
-get_boxplot(per_cols)
-get_boxplot(not_out_col)
-get_boxplot(some_out_col)
-get_boxplot(great_out_col)
-get_boxplot(miaf)
+b1 <- get_boxplot(per_cols)
+b2 <- get_boxplot(not_out_col)
+b3 <- get_boxplot(some_out_col)
+b4 <- get_boxplot(great_out_col)
+b5 <- get_boxplot(out_col)
+b6 <- get_boxplot('doctor')
+
+wrap_plots(b1, b2, b3, b4, b5, b6, ncol = 3) + 
+  plot_annotation(
+    title = 'Egyes változók eloszlása és átlaga',
+    subtitle = 'Átlag: piros vonal, Medián: fekete vonal',
+    theme = theme(
+      plot.title = element_text(size = 22, face = "bold"),
+      plot.subtitle = element_text(size = 14)
+    )
+  ) & 
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 13),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank()
+  )
+
+ggsave(filename=paste0(plot.path, 'v02_02_boxplots.png'), 
+width = 4000, height = 4000, units = "px", dpi = 300)
 
 # ---- Functions for the plots ----
 library(dplyr)
@@ -94,10 +116,10 @@ library(grid)
     # params: x ~ variable name AND islog=FALSE ~ use log1p function or not, default not
     # params are for BOTH, not possible to combine variables
 
-get_mapplot <- function(x,islog=FALSE){
+get_mapplot <- function(x,islog=FALSE,istitle=T){ 
   title_text <- desc %>% 
-    filter(name == x) %>% 
-    pull(description)
+  filter(name == x) %>% 
+  pull(description)
   
   ggplot(ksh) +
     geom_sf(data=hun_shape, fill='white', size=0.3,color='black') +
@@ -106,14 +128,14 @@ get_mapplot <- function(x,islog=FALSE){
     scale_fill_viridis_b(option = 'viridis') +
     theme_minimal() +
     theme(legend.position='bottom') +
-    labs(title = desc[desc$name==x,]$description,
-         fill = if (islog) paste0('log(',x,')') else x) +
+    labs(title = if (istitle) desc[desc$name==x,]$description else '',
+         fill = if (islog) paste0('log1p(',x,')') else x) +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
           axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank()) +
     guides(fill = guide_colorbar(barwidth = 10, barheight = 0.5))
 }
 
-get_hist <- function(x,islog=FALSE){
+get_hist <- function(x,islog=FALSE,istitle=T){
   if (islog) {for_fun <- log1p(ksh[[x]])} else {for_fun <- ksh[[x]]}
   
   g <- ggplot(ksh) +
@@ -126,7 +148,7 @@ get_hist <- function(x,islog=FALSE){
     theme_minimal() +
     theme(legend.position='bottom', panel.background = element_blank(),
           plot.background = element_blank(), panel.grid = element_blank()) +
-    labs(y='darab', x = if (islog) paste0('log(',x,')') else x) +
+    labs(y='darab', x = if (islog) paste0('log1p(',x,')') else x) +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
   return(g)
 }
@@ -158,6 +180,8 @@ get_combined <- function(x,islog=FALSE){
   popViewport()
 }
 
+plot.path.ksh <- '/Users/mac/Downloads/egyetem/TDK/magyar_petered_main/magyar_petered/ksh_plots/'
+
 # ---- Plotting individual values ----
 library(units)
 
@@ -179,177 +203,324 @@ ggplot(ksh) +
         axis.title = element_blank(), axis.text=element_blank(), panel.grid=element_blank())
 
 # animal unity
-get_hist('animal_unity', islog=FALSE)
-get_mapplot('animal_unity', islog=F)
-get_hist('animal_unity', islog=T)
-get_mapplot('animal_unity', islog=T)
+get_hist_no_title <- function(x,islog=FALSE){
+  if (islog) {for_fun <- log1p(ksh[[x]])} else {for_fun <- ksh[[x]]}
+  
+  g <- ggplot(ksh) +
+    geom_histogram(aes(x= for_fun)) +
+    scale_fill_viridis_b(option = 'viridis') +
+    stat_function(fun = function(x) {
+      dnorm(x, mean = mean(for_fun, na.rm = TRUE), sd = sd(for_fun, na.rm = TRUE)) * 
+        diff(hist(for_fun, plot = FALSE)$mids[1:2]) * length(for_fun)
+    }, color = "red", size = 1, alpha = 0.5)  +
+    theme_minimal() +
+    theme(legend.position='bottom', panel.background = element_blank(),
+          plot.background = element_blank(), panel.grid = element_blank()) +
+    labs(y='darab', x = if (islog) paste0('log1p(',x,')') else x) +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+  return(g)
+}
+
+h1 <- get_hist('animal_unity', islog=FALSE)
+h2 <- get_mapplot('animal_unity', islog=F,istitle=F)
+h3 <- get_hist('animal_unity', islog=T)
+h4 <- get_mapplot('animal_unity', islog=T,istitle=F)
+
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path, 'v02_03_animal_unity.png'), 
+width = 3000, height = 2000, units = "px", dpi = 300)
 
 # big_flats
-get_hist('big_flats')
-get_mapplot('big_flats')
+h1 <- get_hist('big_flats')
+h2 <- get_mapplot('big_flats')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'big_flats.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # waste_collection
-get_hist('waste_collection')
-get_mapplot('waste_collection')
-get_hist('waste_collection',islog=T)
-get_mapplot('waste_collection',islog=T)
+h1 <- get_hist('waste_collection')
+h2 <- get_mapplot('waste_collection')
+h3 <- get_hist('waste_collection',islog=T)
+h4 <- get_mapplot('waste_collection',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'waste_collection.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # flat_sewage
-get_hist('flat_sewage')
-get_mapplot('flat_sewage')
+h1 <- get_hist('flat_sewage')
+h2 <- get_mapplot('flat_sewage')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'flat_sewage.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # criminals
-get_hist('criminals')
-get_mapplot('criminals')
-get_hist('criminals',islog=T)
-get_mapplot('criminals',islog=T)
+h1 <- get_hist('criminals')
+h2 <- get_mapplot('criminals')
+h3 <- get_hist('criminals',islog=T)
+h4 <- get_mapplot('criminals',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'criminals.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
+
+# doctor
+h1 <- get_hist('doctor')
+h2 <- get_mapplot('doctor')
+h3 <- get_hist('doctor',islog=T)
+h4 <- get_mapplot('doctor',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'doctor.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # szja
-get_hist('szja')
-get_mapplot('szja')
+h1 <- get_hist('szja')
+h2 <- get_mapplot('szja')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'szja.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # flat_area
-get_hist('flat_area')
-get_mapplot('flat_area')
+h1 <- get_hist('flat_area')
+h2 <- get_mapplot('flat_area')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'flat_area.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # sewage_quantity
-get_hist('sewage_quantity')
-get_mapplot('sewage_quantity')
-get_hist('sewage_quantity',islog=T)
-get_mapplot('sewage_quantity',islog=T)
+h1 <- get_hist('sewage_quantity')
+h2 <- get_mapplot('sewage_quantity')
+h3 <- get_hist('sewage_quantity',islog=T)
+h4 <- get_mapplot('sewage_quantity',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'sewage_quantity.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # prof_per_stud
-get_hist('prof_per_stud')
-get_mapplot('prof_per_stud')
-get_hist('prof_per_stud',islog=T)
-get_mapplot('prof_per_stud',islog=T)
+h1 <- get_hist('prof_per_stud')
+h2 <- get_mapplot('prof_per_stud')
+h3 <- get_hist('prof_per_stud',islog=T)
+h4 <- get_mapplot('prof_per_stud',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'prof_per_stud.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # collected_waste
-get_hist('collected_waste')
-get_mapplot('collected_waste')
-get_hist('collected_waste',islog=T)
-get_mapplot('collected_waste',islog=T)
+h1 <- get_hist('collected_waste')
+h2 <- get_mapplot('collected_waste')
+h3 <- get_hist('collected_waste',islog=T)
+h4 <- get_mapplot('collected_waste',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'collected_waste.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # gas_consumption
-get_hist('gas_consumption')
-get_mapplot('gas_consumption')
+h1 <- get_hist('gas_consumption')
+h2 <- get_mapplot('gas_consumption')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'gas_consumption.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # electricity
-get_hist('electricity_consumption')
-get_mapplot('electricity_consumption')
-get_hist('electricity_consumption',islog=T)
-get_mapplot('electricity_consumption',islog=T)
+h1 <- get_hist('electricity_consumption')
+h2 <- get_mapplot('electricity_consumption')
+h3 <- get_hist('electricity_consumption',islog=T)
+h4 <- get_mapplot('electricity_consumption',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'electricity_consumption.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # cultural_programs
-get_hist('cultural_programs')
-get_mapplot('cultural_programs')
-get_hist('cultural_programs',islog=T)
-get_mapplot('cultural_programs',islog=T)
+h1 <- get_hist('cultural_programs')
+h2 <- get_mapplot('cultural_programs')
+h3 <- get_hist('cultural_programs',islog=T)
+h4 <- get_mapplot('cultural_programs',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'cultural_programs.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # newborns
-get_hist('newborns')
-get_mapplot('newborns')
-get_hist('newborns',islog=T)
-get_mapplot('newborns',islog=T)
+h1 <- get_hist('newborns')
+h2 <- get_mapplot('newborns')
+h3 <- get_hist('newborns',islog=T)
+h4 <- get_mapplot('newborns',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'newborns.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # businesses
-get_hist('businesses')
-get_mapplot('businesses')
-get_hist('businesses',islog=T)
-get_mapplot('businesses',islog=T)
+h1 <- get_hist('businesses')
+h2 <- get_mapplot('businesses')
+h3 <- get_hist('businesses',islog=T)
+h4 <- get_mapplot('businesses',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'businesses.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # deaths
-get_hist('deaths')
-get_mapplot('deaths')
-get_hist('deaths',islog=T)
-get_mapplot('deaths',islog=T)
+h1 <- get_hist('deaths')
+h2 <- get_mapplot('deaths')
+h3 <- get_hist('deaths',islog=T)
+h4 <- get_mapplot('deaths',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'deaths.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # marriages
-get_hist('marriages')
-get_mapplot('marriages')
-get_hist('marriages',islog=T)
-get_mapplot('marriages',islog=T)
+h1 <- get_hist('marriages')
+h2 <- get_mapplot('marriages')
+h3 <- get_hist('marriages',islog=T)
+h4 <- get_mapplot('marriages',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'marriages.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # net_subs
-get_hist('net_subs')
-get_mapplot('net_subs')
-get_hist('net_subs',islog=T)
-get_mapplot('net_subs',islog=T)
+h1 <- get_hist('net_subs')
+h2 <- get_mapplot('net_subs')
+h3 <- get_hist('net_subs',islog=T)
+h4 <- get_mapplot('net_subs',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'net_subs.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # small_stores
-get_hist('small_stores')
-get_mapplot('small_stores')
-get_hist('small_stores',islog=T)
-get_mapplot('small_stores',islog=T)
+h1 <- get_hist('small_stores')
+h2 <- get_mapplot('small_stores')
+h3 <- get_hist('small_stores',islog=T)
+h4 <- get_mapplot('small_stores',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'small_stores.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # estate_area
-get_hist('estate_area')
-get_mapplot('estate_area')
-get_hist('estate_area',islog=T)
-get_mapplot('estate_area',islog=T)
+h1 <- get_hist('estate_area')
+h2 <- get_mapplot('estate_area')
+h3 <- get_hist('estate_area',islog=T)
+h4 <- get_mapplot('estate_area',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'estate_area.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # pensioneers
-get_hist('pensioneers')
-get_mapplot('pensioneers')
+h1 <- get_hist('pensioneers')
+h2 <- get_mapplot('pensioneers')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'pensioneers.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # migration_diff
-get_hist('migration_diff')
-get_mapplot('migration_diff')
+h1 <- get_hist('migration_diff')
+h2 <- get_mapplot('migration_diff')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'migration_diff.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # crop_field
-get_hist('crop_field')
-get_mapplot('crop_field')
-get_hist('crop_field',islog=T)
-get_mapplot('crop_field',islog=T)
+h1 <- get_hist('crop_field')
+h2 <- get_mapplot('crop_field')
+h3 <- get_hist('crop_field',islog=T)
+h4 <- get_mapplot('crop_field',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'crop_field.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # habitans_per_flats
-get_hist('habitans_per_flats')
-get_mapplot('habitans_per_flats')
-get_hist('habitans_per_flats',islog=T)
-get_mapplot('habitans_per_flats',islog=T)
+h1 <- get_hist('habitans_per_flats')
+h2 <- get_mapplot('habitans_per_flats')
+h3 <- get_hist('habitans_per_flats',islog=T)
+h4 <- get_mapplot('habitans_per_flats',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'habitans_per_flats.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # childs_per_nursery_school
-get_hist('habitans_per_flats')
-get_mapplot('habitans_per_flats')
+h1 <- get_hist('habitans_per_flats')
+h2 <- get_mapplot('habitans_per_flats')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'childs_per_nursery_school.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # cars
-get_hist('cars')
-get_mapplot('cars')
-get_hist('cars',islog=T)
-get_mapplot('cars',islog=T)
-# correlation with szja
+h1 <- get_hist('cars')
+h2 <- get_mapplot('cars')
+h3 <- get_hist('cars',islog=T)
+h4 <- get_mapplot('cars',islog=T)
+(h1|h3)/(h2|h4)
+ggsave(filename=paste0(plot.path.ksh, 'cars.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # fertility_rate
-get_hist('fertility_rate')
-get_mapplot('fertility_rate')
+h1 <- get_hist('fertility_rate')
+h2 <- get_mapplot('fertility_rate')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'fertility_rate.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # len_routes_diff
-get_hist('len_routes_diff')
-get_mapplot('len_routes_diff')
+h1 <- get_hist('len_routes_diff')
+h2 <- get_mapplot('len_routes_diff')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'len_routes_diff.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # flats
-get_hist('flats')
-get_mapplot('flats')
+h1 <- get_hist('flats')
+h2 <- get_mapplot('flats')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'flats.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # building_permissions
-get_hist('building_permissions')
-get_mapplot('building_permissions')
+h1 <- get_hist('building_permissions')
+h2 <- get_mapplot('building_permissions')
+h1|h2
+ggsave(filename=paste0(plot.path.ksh, 'building_permissions.png'), 
+     width = 3500, height = 2000, units = "px", dpi = 300)
 
 # ---- Nepszamlalas data ----
 # age
 ages <- c('age10','age20','age30','age40','age50','age60',
           'age70','age80','age90')
-get_boxplot(ages)
+n1 <- get_boxplot(ages)
 
 # edu
 edus <- c('lower_elementary', 'elementary', 'degree', 'leaving_exam', 'uni')
-get_boxplot(edus)
+n2 <- get_boxplot(edus)
 
-df[,edus]
+# religion
+rel <- c('christian', 'ateist', 'rel_no_ans')
+n3 <- get_boxplot(rel)
+
+# nationality
+nat <- c('hun', 'roma', 'other_nat', 'roma_no_ans')
+n4 <- get_boxplot(nat)
+
+wrap_plots(n1, n2, n3, n4, ncol = 2) + 
+  plot_annotation(
+    title = 'Egyes változók eloszlása és átlaga',
+    subtitle = 'Átlag: piros vonal, Medián: fekete vonal',
+    theme = theme(
+      plot.title = element_text(size = 22, face = "bold"),
+      plot.subtitle = element_text(size = 14)
+    )
+  ) & 
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 13),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank()
+  )
+ggsave(filename=paste0(plot.path, 'v02_04_nepszamlalas.png'), 
+width = 3000, height = 2000, units = "px", dpi = 300)
 
 # population
-get_hist('pop')
-get_mapplot('pop')
-get_hist('pop',islog=T)
-get_mapplot('pop',islog=T)
+p1 <- get_hist('pop')
+p2 <- get_mapplot('pop',istitle=F)
+p3 <- get_hist('pop',islog=T)
+p4 <- get_mapplot('pop',islog=T,istitle=F)
 
+(p1|p3)/(p2|p4)
+ggsave(filename=paste0(plot.path, 'v02_05_pop.png'), 
+width = 3000, height = 2000, units = "px", dpi = 300)
+
+# summary table
+colnames(ksh)
+summary(ksh[10:63])

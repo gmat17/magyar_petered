@@ -771,7 +771,6 @@ c1+c2+c3
 
 # final model evaluation
 barplot(model3.tisza.r2,xlab='folds',ylab='R-squared')
-
 corrplot(cor(as.data.frame(df[,predictors3.tisza])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
 cor(data.frame(df$szja.pca, df$elementary, df$uni.pca))
 cor(df[,predictors0.tisza])['uni.pca',]
@@ -780,7 +779,10 @@ set.seed(17)
 boot.results.tisza <- Boot(model3.tisza, R = 1000, ncores=4)
 summary(boot.results.tisza)
 hist(boot.results.tisza, layout = c(3, 5))
+
+png(filename = paste0(plot.path, 'v2_18_model_heterosked.png'), width = 1200, height = 600, res = 120)
 plot(model2.tisza, which=1)
+dev.off()
 barplot(model3.tisza.r2,xlab='folds',ylab='R-squared')
 model3.tisza.r2
 
@@ -845,8 +847,6 @@ coeftest(model3.fidesz, vcov = hccm(model3.fidesz))
 model3.fidesz.r2 <- cv.r2(formula_str3.fidesz, 'fidesz')
 mean(model3.fidesz.r2)
 
-# no model 3 for fidesz because the results are almost the same
-
 # model evaluation
 ic.fidesz <- data.frame(
   name=c('model1.fidesz', 'model2.fidesz', 'model3.fidesz'),
@@ -889,13 +889,12 @@ c1+c2+c3
 # ggsave(filename=paste0(plot.path, 'v2_10_fidesz_modellek.png'), 
 #     width = 3500, height = 2000, units = "px", dpi = 300)
 
-
 corrplot(cor(as.data.frame(df[,predictors2.fidesz])), method='square', type='upper', diag=FALSE, tl.cex = 0.6)
 
 set.seed(17)
 boot.results.fidesz <- Boot(model3.fidesz, R = 1000, ncores=4)
 summary(boot.results.fidesz)
-hist(boot.results.fidesz, layout = c(3, 5))
+hist(boot.results.fidesz, layout = c(1,1))
 plot(model3.fidesz, which=1)
 barplot(model3.tisza.r2,xlab='folds',ylab='R-squared')
 model3.fidesz.r2
@@ -913,7 +912,6 @@ predictors1.bal <- c(
   "age30", "age40", "age50", "nat.pca", "is_mped", "is_fideszed", 
   "turnout", "pop.log1p"
 ) # not try uni.pca because of multicollinearity (same issue like at tisza)
-
 formula_str1.bal <- paste("bal ~", paste(predictors1.bal, collapse = " + "))
 model1.bal <- lm(as.formula(formula_str1.bal), data = df)
 summary(model1.bal)
@@ -930,7 +928,6 @@ predictors2.bal <- c(
   "age40", "age50", "flat.pca", "stud.pca", "age.pca1",
   "age.pca2","age40", 'age50', "is_mped", "turnout", "pop.log1p"
 ) # drop insignificant variables
-
 formula_str2.bal <- paste("bal ~", paste(predictors2.bal, collapse = " + "))
 model2.bal <- lm(as.formula(formula_str2.bal), data = df)
 summary(model2.bal)
@@ -959,9 +956,14 @@ mean(model3.bal.r2)
 
 ic.bal <- data.frame(
   name=c('model1.bal', 'model2.bal', 'model3.bal'),
+  num.of.vars=num.vars(list(model1.bal, model2.bal, model3.bal)),
   AIC=AIC(model1.bal, model2.bal, model3.bal)$AIC,
   BIC=BIC(model1.bal, model2.bal, model3.bal)$BIC,
-  cv.r2=c(mean(model1.bal.r2), mean(model2.bal.r2), mean(model3.bal.r2))
+  cv.r2=c(mean(model1.bal.r2), mean(model2.bal.r2), mean(model3.bal.r2)),
+  VIFgreater10=get_all_vifs(list(model1.bal, model2.bal, model3.bal), 10),
+  VIFgreater5=get_all_vifs(list(model1.bal, model2.bal, model3.bal), 5),
+  pgreater0.1=count.p(list(model1.bal, model2.bal, model3.bal)),
+  pgreater0.01=count.p(list(model1.bal, model2.bal, model3.bal))
 )
 
 c1 <- ggplot(ic.bal, aes(x=name, y=AIC)) +
@@ -1333,6 +1335,8 @@ subtitle = 'távolság: legközelebbi településhez közúton, percben') +
 # ==== 8. OLS regression with distance ====
 # ---- 8.1. TISZA regression -----
 # closest.distance linearly
+
+
 predictors4.tisza <- c(
   "tisza.closest.distance", "electricity_consumption.log1p", "estate_area.log1p",
   "lower_elementary", "elementary", "degree", "christian", "ateist",
@@ -1396,9 +1400,14 @@ mean(model5.tisza.r2)
 
 ic.tisza2 <- data.frame(
   name=c('model3.tisza', 'model4.tisza', 'model5.tisza'),
+  num.of.vars=num.vars(list(model3.tisza, model4.tisza, model5.tisza)),
   AIC=AIC(model3.tisza, model4.tisza, model5.tisza)$AIC,
   BIC=BIC(model3.tisza, model4.tisza, model5.tisza)$BIC,
-  cv.r2=c(mean(model3.tisza.r2), mean(model4.tisza.r2), mean(model5.tisza.r2))
+  cv.r2=c(mean(model3.tisza.r2), mean(model4.tisza.r2), mean(model5.tisza.r2)),
+  VIFgreater10=get_all_vifs(list(model3.tisza, model4.tisza, model5.tisza), 10),
+  VIFgreater5=get_all_vifs(list(model3.tisza, model4.tisza, model5.tisza), 5),
+  pgreater0.1=count.p(list(model3.tisza, model4.tisza, model5.tisza)),
+  pgreater0.01=count.p(list(model3.tisza, model4.tisza, model5.tisza))
 )
 
 c1 <- ggplot(ic.tisza2, aes(x=name, y=AIC)) +
@@ -1465,9 +1474,14 @@ mean(model5.fidesz.r2)
 
 ic.fidesz2 <- data.frame(
   name=c('model3.fidesz', 'model4.fidesz', 'model5.fidesz'),
+  num.of.vars=num.vars(list(model3.fidesz, model4.fidesz, model5.fidesz)),
   AIC=AIC(model3.fidesz, model4.fidesz, model5.fidesz)$AIC,
   BIC=BIC(model3.fidesz, model4.fidesz, model5.fidesz)$BIC,
-  cv.r2=c(mean(model3.fidesz.r2), mean(model4.fidesz.r2), mean(model5.fidesz.r2))
+  cv.r2=c(mean(model3.fidesz.r2), mean(model4.fidesz.r2), mean(model5.fidesz.r2)),
+  VIFgreater10=get_all_vifs(list(model3.fidesz, model4.fidesz, model5.fidesz), 10),
+  VIFgreater5=get_all_vifs(list(model3.fidesz, model4.fidesz, model5.fidesz), 5),
+  pgreater0.1=count.p(list(model3.fidesz, model4.fidesz, model5.fidesz)),
+  pgreater0.01=count.p(list(model3.fidesz, model4.fidesz, model5.fidesz))
 )
 
 c1 <- ggplot(ic.fidesz2, aes(x=name, y=AIC)) +
@@ -1506,7 +1520,7 @@ predictors4.bal <- c(
   "ateist", "rel_no_ans", "age40", "stud.pca", "age.pca1",
   "age.pca2", "is_mped", "pop.log1p"
 ) # replace is_mped with fidesz.closest.distance
-formula_str4.bal <- paste("fidesz ~", paste(predictors4.bal, collapse = " + "))
+formula_str4.bal <- paste("bal ~", paste(predictors4.bal, collapse = " + "))
 model4.bal <- lm(as.formula(formula_str4.bal), data = df)
 summary(model4.bal)
 car::vif(model4.bal)
@@ -1521,7 +1535,7 @@ predictors5.bal <- c(
   "ateist", "rel_no_ans", "age40", "stud.pca", "age.pca1",
   "age.pca2", "is_mped", "pop.log1p"
 ) # dropped non-significant variables
-formula_str5.bal <- paste("fidesz ~", paste(predictors5.bal, collapse = " + "))
+formula_str5.bal <- paste("bal ~", paste(predictors5.bal, collapse = " + "))
 model5.bal <- lm(as.formula(formula_str5.bal), data = df)
 summary(model5.bal)
 car::vif(model5.bal)
@@ -1531,10 +1545,15 @@ model5.bal.r2 <- cv.r2(formula_str5.bal, 'fidesz', df)
 mean(model5.bal.r2)
 
 ic.bal2 <- data.frame(
-  name=c('model2.bal', 'model4.bal', 'model5.bal'),
-  AIC=AIC(model2.bal, model4.bal, model5.bal)$AIC,
-  BIC=BIC(model2.bal, model4.bal, model5.bal)$BIC,
-  cv.r2=c(mean(model2.bal.r2), mean(model4.bal.r2), mean(model5.bal.r2))
+  name=c('model3.bal', 'model4.bal', 'model5.bal'),
+  num.of.vars=num.vars(list(model3.bal, model4.bal, model5.bal)),
+  AIC=AIC(model3.bal, model4.bal, model5.bal)$AIC,
+  BIC=BIC(model3.bal, model4.bal, model5.bal)$BIC,
+  cv.r2=c(mean(model3.bal.r2), mean(model4.bal.r2), mean(model5.bal.r2)),
+  VIFgreater10=get_all_vifs(list(model3.bal, model4.bal, model5.bal), 10),
+  VIFgreater5=get_all_vifs(list(model3.bal, model4.bal, model5.bal), 5),
+  pgreater0.1=count.p(list(model3.bal, model4.bal, model5.bal)),
+  pgreater0.01=count.p(list(model3.bal, model4.bal, model5.bal))
 )
 
 c1 <- ggplot(ic.bal2, aes(x=name, y=AIC)) +
@@ -1568,5 +1587,11 @@ ggsave(filename=paste0(plot.path, 'v2_17_dk_tavolsag_modellek.png'),
 
 
 # calculate the gained people
-sum(0.0070605 * (max(df$tisza.closest.log1p, na.rm = TRUE) - df$tisza.closest.log1p) * (df$vox_pop * df$turnout))
-sum(0.018173 * (max(df$fidesz.closest.log1p, na.rm = TRUE) - df$fidesz.closest.log1p) * (df$vox_pop * df$turnout))
+sum(abs(coef(model4.tisza)["tisza.closest.distance"]) * (max(df$tisza.closest.distance) - df$tisza.closest.distance) * (df$vox_pop * df$turnout))
+sum(abs(coef(model5.tisza)["tisza.closest.log1p"]) * (max(df$tisza.closest.log1p) - df$tisza.closest.log1p) * (df$vox_pop * df$turnout))
+
+sum(abs(coef(model4.fidesz)["fidesz.closest.distance"]) * (max(df$fidesz.closest.distance) - df$fidesz.closest.distance) * (df$vox_pop * df$turnout))
+sum(abs(coef(model5.fidesz)["fidesz.closest.log1p"]) * (max(df$fidesz.closest.log1p) - df$fidesz.closest.log1p) * (df$vox_pop * df$turnout))
+
+sum(abs(coef(model4.bal)["dk.closest.distance"]) * (max(df$dk.closest.distance) - df$dk.closest.distance) * (df$vox_pop * df$turnout))
+sum(abs(coef(model5.bal)["dk.closest.log1p"]) * (max(df$dk.closest.log1p) - df$dk.closest.log1p) * (df$vox_pop * df$turnout))
